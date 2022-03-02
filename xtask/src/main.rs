@@ -1,3 +1,7 @@
+use chrono::Local;
+use std::collections::{BTreeMap, HashMap};
+use std::fmt::Write as StdWrite;
+use std::fs::OpenOptions;
 use std::{
     env,
     fs::File,
@@ -5,10 +9,6 @@ use std::{
     path::{Path, PathBuf, MAIN_SEPARATOR},
     process::Command,
 };
-use std::fs::OpenOptions;
-use chrono::Local;
-use std::collections::{HashMap, BTreeMap};
-use std::fmt::Write as StdWrite;
 
 type DynError = Box<dyn std::error::Error>;
 
@@ -69,8 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ];
     let app_pkgs = [
         // "standard" demo apps
-        "ball",
-        "repl",
+        "ball", "repl",
     ];
     let benchmark_pkgs = [
         "benchmark",
@@ -125,7 +124,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "com",
         "susres",
     ];
-    let pddb_dev_pkgs = [ // just for checking compilation
+    let pddb_dev_pkgs = [
+        // just for checking compilation
         "ticktimer-server",
         "log-server",
         "susres",
@@ -166,13 +166,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let kkey = args.nth(4);
     match task.as_deref() {
         Some("renode-image") => {
-            generate_app_menus(&vec!["ball".to_string()]);
+            let mut args = env::args();
+            args.nth(1);
+            let mut pkgs = hw_pkgs.to_vec();
+            let mut apps: Vec<String> = args.collect();
+            if apps.len() == 0 { // add the standard demo apps if none are specified
+                println!("No apps specified, adding default apps...");
+                apps.push("ball".to_string());
+                apps.push("repl".to_string());
+            }
+            for app in &apps {
+                pkgs.push(app);
+            }
+            generate_app_menus(&apps);
             renode_image(false, &hw_pkgs, &[])?
-        },
+        }
         Some("renode-test") => {
-            generate_app_menus(&vec!["ball".to_string()]);
+            let mut args = env::args();
+            args.nth(1);
+            let mut pkgs = hw_pkgs.to_vec();
+            let mut apps: Vec<String> = args.collect();
+            if apps.len() == 0 { // add the standard demo apps if none are specified
+                println!("No apps specified, adding default apps...");
+                apps.push("ball".to_string());
+                apps.push("repl".to_string());
+            }
+            for app in &apps {
+                pkgs.push(app);
+            }
+            generate_app_menus(&apps);
             renode_image(false, &cbtest_pkgs, &[])?
-        },
+        }
         Some("libstd-test") => {
             let mut args = env::args();
             args.nth(1);
@@ -187,22 +211,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some("renode-aes-test") => {
             generate_app_menus(&Vec::<String>::new());
             renode_image(false, &aestest_pkgs, &[])?
-        },
+        }
         Some("renode-image-debug") => {
             generate_app_menus(&vec!["ball".to_string()]);
             renode_image(true, &hw_pkgs, &[])?
-        },
+        }
         Some("pddb-ci") => {
             generate_app_menus(&Vec::<String>::new());
-            run(false, &hw_pkgs, Some(
-            &["--features", "pddb/ci", "--features", "pddb/deterministic"]
-        ))?},
+            run(
+                false,
+                &hw_pkgs,
+                Some(&["--features", "pddb/ci", "--features", "pddb/deterministic"]),
+            )?
+        }
         Some("run") => {
             let mut args = env::args();
             args.nth(1);
             let mut pkgs = hw_pkgs.to_vec();
             let mut apps: Vec<String> = args.collect();
-            if apps.len() == 0 { // add the standard demo apps if none are specified
+            if apps.len() == 0 {
+                // add the standard demo apps if none are specified
                 println!("No apps specified, adding default apps...");
                 apps.push("ball".to_string());
                 apps.push("repl".to_string());
@@ -212,13 +240,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             generate_app_menus(&apps);
             run(false, &pkgs, None)?
-        },
+        }
         Some("debug") => {
             let mut args = env::args();
             args.nth(1);
             let mut pkgs = hw_pkgs.to_vec();
             let mut apps: Vec<String> = args.collect();
-            if apps.len() == 0 { // add the standard demo apps if none are specified
+            if apps.len() == 0 {
+                // add the standard demo apps if none are specified
                 println!("No apps specified, adding default apps...");
                 apps.push("ball".to_string());
                 apps.push("repl".to_string());
@@ -228,7 +257,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             generate_app_menus(&apps);
             run(true, &pkgs, None)?
-        },
+        }
         Some("app-image") => {
             let mut args = env::args();
             args.nth(1);
@@ -238,10 +267,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 pkgs.push(app);
             }
             generate_app_menus(&apps);
-            build_hw_image(false,
+            build_hw_image(
+                false,
                 Some("./precursors/soc.svd".to_string()),
                 &pkgs,
-                lkey, kkey, None, &[])?
+                lkey,
+                kkey,
+                None,
+                &[],
+            )?
         }
         Some("hw-image") => {
             let mut pkgs = vec![];
@@ -258,9 +292,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             generate_app_menus(&app_strs);
             build_hw_image(false, env::args().nth(2), &pkgs, lkey, kkey, None, &[])?
         }
-        Some("gfx-dev") => {
-            run(true, &gfx_dev_pkgs, Some(&["--features", "graphics-server/testing"]))?
-        }
+        Some("gfx-dev") => run(
+            true,
+            &gfx_dev_pkgs,
+            Some(&["--features", "graphics-server/testing"]),
+        )?,
         Some("pddb-dev") => build_hw_image(
             false,
             env::args().nth(2),
@@ -301,36 +337,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some("trng-test") => {
             generate_app_menus(&Vec::<String>::new());
             build_hw_image(
-            false,
-            env::args().nth(2),
-            &hw_pkgs,
-            lkey,
-            kkey,
-            Some(&["--features", "urandomtest"]),
-            &[],
-        )?},
+                false,
+                env::args().nth(2),
+                &hw_pkgs,
+                lkey,
+                kkey,
+                Some(&["--features", "urandomtest"]),
+                &[],
+            )?
+        }
         Some("ro-test") => {
             generate_app_menus(&Vec::<String>::new());
             build_hw_image(
-            false,
-            env::args().nth(2),
-            &hw_pkgs,
-            lkey,
-            kkey,
-            Some(&["--features", "ringosctest"]),
-            &[],
-        )?},
+                false,
+                env::args().nth(2),
+                &hw_pkgs,
+                lkey,
+                kkey,
+                Some(&["--features", "ringosctest"]),
+                &[],
+            )?
+        }
         Some("av-test") => {
             generate_app_menus(&Vec::<String>::new());
             build_hw_image(
-            false,
-            env::args().nth(2),
-            &hw_pkgs,
-            lkey,
-            kkey,
-            Some(&["--features", "avalanchetest"]),
-            &[],
-        )?},
+                false,
+                env::args().nth(2),
+                &hw_pkgs,
+                lkey,
+                kkey,
+                Some(&["--features", "avalanchetest"]),
+                &[],
+            )?
+        }
         Some("sr-test") => {
             build_hw_image(false, env::args().nth(2), &sr_pkgs, lkey, kkey, None, &[])?
         }
@@ -405,21 +444,26 @@ fn update_usb(
         println!("Burning kernel. After this is done, you must select 'Sign xous update' to self-sign the image.");
         let stdout = if cfg!(target_os = "windows") {
             Command::new("cmd")
-            .args(["/C", "python",
-            "tools/usb_update.py", "-k", "target/riscv32imac-unknown-xous-elf/release/xous.img"])
-            .stdout(Stdio::piped())
-            .spawn()?
-            .stdout
-            .ok_or_else(|| Error::new(ErrorKind::Other, "Could not capture output"))?
+                .args([
+                    "/C",
+                    "python",
+                    "tools/usb_update.py",
+                    "-k",
+                    "target/riscv32imac-unknown-xous-elf/release/xous.img",
+                ])
+                .stdout(Stdio::piped())
+                .spawn()?
+                .stdout
+                .ok_or_else(|| Error::new(ErrorKind::Other, "Could not capture output"))?
         } else {
             Command::new("python3")
-            .arg("tools/usb_update.py")
-            .arg("-k")
-            .arg("target/riscv32imac-unknown-xous-elf/release/xous.img")
-            .stdout(Stdio::piped())
-            .spawn()?
-            .stdout
-            .ok_or_else(|| Error::new(ErrorKind::Other, "Could not capture output"))?
+                .arg("tools/usb_update.py")
+                .arg("-k")
+                .arg("target/riscv32imac-unknown-xous-elf/release/xous.img")
+                .stdout(Stdio::piped())
+                .spawn()?
+                .stdout
+                .ok_or_else(|| Error::new(ErrorKind::Other, "Could not capture output"))?
         };
 
         let reader = BufReader::new(stdout);
@@ -431,21 +475,26 @@ fn update_usb(
         println!("Burning loader. After this is done, you must select 'Sign xous update' to self-sign the image.");
         let stdout = if cfg!(target_os = "windows") {
             Command::new("cmd")
-            .args(["/C", "python", "tools/usb_update.py",
-            "-l", "target/riscv32imac-unknown-xous-elf/release/loader.bin"])
-            .stdout(Stdio::piped())
-            .spawn()?
-            .stdout
-            .ok_or_else(|| Error::new(ErrorKind::Other, "Could not capture output"))?
+                .args([
+                    "/C",
+                    "python",
+                    "tools/usb_update.py",
+                    "-l",
+                    "target/riscv32imac-unknown-xous-elf/release/loader.bin",
+                ])
+                .stdout(Stdio::piped())
+                .spawn()?
+                .stdout
+                .ok_or_else(|| Error::new(ErrorKind::Other, "Could not capture output"))?
         } else {
             Command::new("python3")
-            .arg("tools/usb_update.py")
-            .arg("-l")
-            .arg("target/riscv32imac-unknown-xous-elf/release/loader.bin")
-            .stdout(Stdio::piped())
-            .spawn()?
-            .stdout
-            .ok_or_else(|| Error::new(ErrorKind::Other, "Could not capture output"))?
+                .arg("tools/usb_update.py")
+                .arg("-l")
+                .arg("target/riscv32imac-unknown-xous-elf/release/loader.bin")
+                .stdout(Stdio::piped())
+                .spawn()?
+                .stdout
+                .ok_or_else(|| Error::new(ErrorKind::Other, "Could not capture output"))?
         };
 
         let reader = BufReader::new(stdout);
@@ -457,21 +506,26 @@ fn update_usb(
         println!("Staging SoC gateware. After this is done, you must select 'Install Gateware Update' from the root menu of your Precursor device.");
         let stdout = if cfg!(target_os = "windows") {
             Command::new("cmd")
-            .args(["/C", "python", "tools/usb_update.py",
-            "-s", "precursors/soc_csr.bin"])
-            .stdout(Stdio::piped())
-            .spawn()?
-            .stdout
-            .ok_or_else(|| Error::new(ErrorKind::Other, "Could not capture output"))?
+                .args([
+                    "/C",
+                    "python",
+                    "tools/usb_update.py",
+                    "-s",
+                    "precursors/soc_csr.bin",
+                ])
+                .stdout(Stdio::piped())
+                .spawn()?
+                .stdout
+                .ok_or_else(|| Error::new(ErrorKind::Other, "Could not capture output"))?
         } else {
             Command::new("python3")
-            .arg("tools/usb_update.py")
-            .arg("-s")
-            .arg("precursors/soc_csr.bin")
-            .stdout(Stdio::piped())
-            .spawn()?
-            .stdout
-            .ok_or_else(|| Error::new(ErrorKind::Other, "Could not capture output"))?
+                .arg("tools/usb_update.py")
+                .arg("-s")
+                .arg("precursors/soc_csr.bin")
+                .stdout(Stdio::piped())
+                .spawn()?
+                .stdout
+                .ok_or_else(|| Error::new(ErrorKind::Other, "Could not capture output"))?
         };
 
         let reader = BufReader::new(stdout);
@@ -483,21 +537,26 @@ fn update_usb(
         println!("Installing factory-reset SoC gateware (secrets will be lost)!");
         let stdout = if cfg!(traget_os = "windows") {
             Command::new("cmd")
-            .args(["/C", "python", "tools/usb_update.py",
-            "--soc", "precursors/soc_csr.bin"])
-            .stdout(Stdio::piped())
-            .spawn()?
-            .stdout
-            .ok_or_else(|| Error::new(ErrorKind::Other, "Could not capture output"))?
+                .args([
+                    "/C",
+                    "python",
+                    "tools/usb_update.py",
+                    "--soc",
+                    "precursors/soc_csr.bin",
+                ])
+                .stdout(Stdio::piped())
+                .spawn()?
+                .stdout
+                .ok_or_else(|| Error::new(ErrorKind::Other, "Could not capture output"))?
         } else {
             Command::new("python3")
-            .arg("tools/usb_update.py")
-            .arg("--soc")
-            .arg("precursors/soc_csr.bin")
-            .stdout(Stdio::piped())
-            .spawn()?
-            .stdout
-            .ok_or_else(|| Error::new(ErrorKind::Other, "Could not capture output"))?
+                .arg("tools/usb_update.py")
+                .arg("--soc")
+                .arg("precursors/soc_csr.bin")
+                .stdout(Stdio::piped())
+                .spawn()?
+                .stdout
+                .ok_or_else(|| Error::new(ErrorKind::Other, "Could not capture output"))?
         };
         let reader = BufReader::new(stdout);
         reader
@@ -537,7 +596,14 @@ fn build_hw_image(
 
     let kernel = build_kernel(debug)?;
     let mut init = vec![];
-    let base_path = build(packages, debug, Some(PROGRAM_TARGET), None, extra_args, None)?;
+    let base_path = build(
+        packages,
+        debug,
+        Some(PROGRAM_TARGET),
+        None,
+        extra_args,
+        None,
+    )?;
     for pkg in packages {
         let mut pkg_path = base_path.clone();
         pkg_path.push(pkg);
@@ -553,7 +619,8 @@ fn build_hw_image(
         debug,
         Some(KERNEL_TARGET),
         Some("loader".into()),
-        None, None,
+        None,
+        None,
     )?;
     loader.push(PathBuf::from("loader"));
 
@@ -735,13 +802,7 @@ fn run(debug: bool, init: &[&str], features: Option<&[&str]>) -> Result<(), DynE
 }
 
 fn build_kernel(debug: bool) -> Result<PathBuf, DynError> {
-    let mut path = build(
-        &["kernel"],
-        debug,
-        Some(KERNEL_TARGET),
-        None,
-        None, None,
-    )?;
+    let mut path = build(&["kernel"], debug, Some(KERNEL_TARGET), None, None, None)?;
     path.push("kernel");
     Ok(path)
 }
@@ -1113,14 +1174,13 @@ fn generate_locales() -> Result<(), std::io::Error> {
     path.push("locales");
     let status = Command::new(cargo())
         .current_dir(path)
-        .args(&[
-            "build",
-            "--package",
-            "locales",
-        ])
+        .args(&["build", "--package", "locales"])
         .status()?;
     if !status.success() {
-        return Err(std::io::Error::new(std::io::ErrorKind::Other, "Couldn't generate the locales"));
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Couldn't generate the locales",
+        ));
     }
     return Ok(());
 }
@@ -1153,15 +1213,15 @@ fn whycheproof_import() -> Result<(), DynError> {
 fn generate_version() {
     let output = if cfg!(target_os = "windows") {
         Command::new("cmd")
-                .args(["/C", "git describe --tags"])
-                .output()
-                .expect("failed to execute process")
+            .args(["/C", "git describe --tags"])
+            .output()
+            .expect("failed to execute process")
     } else {
         Command::new("sh")
-                .arg("-c")
-                .arg("git describe --tags")
-                .output()
-                .expect("failed to execute process")
+            .arg("-c")
+            .arg("git describe --tags")
+            .output()
+            .expect("failed to execute process")
     };
     let gitver = output.stdout;
     let semver = String::from_utf8_lossy(&gitver);
@@ -1171,18 +1231,27 @@ fn generate_version() {
         .write(true)
         .create(true)
         .truncate(true)
-        .open("services/ticktimer-server/src/version.rs").expect("Can't open our version file for writing");
+        .open("services/ticktimer-server/src/version.rs")
+        .expect("Can't open our version file for writing");
     print_header(&mut vfile);
-    #[cfg(not(feature="no-timestamp"))]
+    #[cfg(not(feature = "no-timestamp"))]
     let now = Local::now();
-    #[cfg(not(feature="no-timestamp"))]
-    write!(vfile, "#[allow(dead_code)]\npub const TIMESTAMP: &'static str = \"{}\";\n", now.to_rfc2822()).expect("couldn't add our timestamp");
-    write!(vfile, "pub const SEMVER: &'static str = \"{}\";\n",
+    #[cfg(not(feature = "no-timestamp"))]
+    write!(
+        vfile,
+        "#[allow(dead_code)]\npub const TIMESTAMP: &'static str = \"{}\";\n",
+        now.to_rfc2822()
+    )
+    .expect("couldn't add our timestamp");
+    write!(
+        vfile,
+        "pub const SEMVER: &'static str = \"{}\";\n",
         semver
-        .strip_suffix("\r\n")
-        .or(semver.strip_suffix("\n"))
-        .unwrap_or(&semver)
-    ).expect("couldn't add our semver");
+            .strip_suffix("\r\n")
+            .or(semver.strip_suffix("\n"))
+            .unwrap_or(&semver)
+    )
+    .expect("couldn't add our semver");
 }
 
 fn print_header<U: Write>(out: &mut U) {
@@ -1202,7 +1271,8 @@ pub(crate) fn get_version() -> crate::api::VersionString {
     v
 }
 "####;
-    out.write_all(s.as_bytes()).expect("couldn't write our version template header");
+    out.write_all(s.as_bytes())
+        .expect("couldn't write our version template header");
 }
 
 ////////////////////////// App manifest infrastructure
@@ -1218,7 +1288,7 @@ struct Locales {
     locales: HashMap<String, HashMap<String, String>>,
 }
 
-fn generate_app_menus(apps: &Vec::<String>) {
+fn generate_app_menus(apps: &Vec<String>) {
     let file = File::open("apps/manifest.json").expect("Failed to open the manifest file");
     let mut reader = std::io::BufReader::new(file);
     let mut content = String::new();
@@ -1231,7 +1301,7 @@ fn generate_app_menus(apps: &Vec::<String>) {
     // localization file
     // inject all the localization strings into the i18n file, which in theory reduces the churn on other crates that depend
     // on the global i18n file between build variants
-    let mut l = BTreeMap::<String, BTreeMap::<String, String>>::new();
+    let mut l = BTreeMap::<String, BTreeMap<String, String>>::new();
     for (_app, manifest) in manifest.iter() {
         for (name, translations) in &manifest.menu_name {
             let mut map = BTreeMap::<String, String>::new();
@@ -1256,25 +1326,38 @@ fn generate_app_menus(apps: &Vec::<String>) {
 
     // construct the gam_tokens
     let mut gam_tokens = String::new();
-    writeln!(gam_tokens, "// This file is auto-generated by xtask/main.rs generate_app_menus()").unwrap();
+    writeln!(
+        gam_tokens,
+        "// This file is auto-generated by xtask/main.rs generate_app_menus()"
+    )
+    .unwrap();
     for (app_name, manifest) in working_set.iter() {
-        writeln!(gam_tokens, "pub const APP_NAME_{}: &'static str = \"{}\";",
+        writeln!(
+            gam_tokens,
+            "pub const APP_NAME_{}: &'static str = \"{}\";",
             app_name.to_uppercase(),
             manifest.context_name,
-        ).unwrap();
+        )
+        .unwrap();
     }
-    writeln!(gam_tokens, "\npub const EXPECTED_APP_CONTEXTS: &[&'static str] = &[").unwrap();
+    writeln!(
+        gam_tokens,
+        "\npub const EXPECTED_APP_CONTEXTS: &[&'static str] = &["
+    )
+    .unwrap();
     for (app_name, _manifest) in working_set.iter() {
-        writeln!(gam_tokens, "    APP_NAME_{},",
-            app_name.to_uppercase(),
-        ).unwrap();
+        writeln!(gam_tokens, "    APP_NAME_{},", app_name.to_uppercase(),).unwrap();
     }
     writeln!(gam_tokens, "];").unwrap();
     overwrite_if_changed(&gam_tokens, "services/gam/src/apps.rs");
 
     // construct the app menu
     let mut menu = String::new();
-    writeln!(menu, "// This file is auto-generated by xtask/main.rs generate_app_menus()").unwrap();
+    writeln!(
+        menu,
+        "// This file is auto-generated by xtask/main.rs generate_app_menus()"
+    )
+    .unwrap();
     writeln!(menu, r####"use crate::StatusOpcode;
 use gam::{{MenuItem, MenuPayload}};
 use locales::t;
@@ -1299,44 +1382,73 @@ impl fmt::Display for AppDispatchError {{
 pub(crate) fn app_dispatch(gam: &gam::Gam, token: [u32; 4], index: usize) -> Result<(), AppDispatchError> {{
     match index {{"####).unwrap();
     for (index, (app_name, _manifest)) in working_set.iter().enumerate() {
-        writeln!(menu, "        {} => {{
+        writeln!(
+            menu,
+            "        {} => {{
             gam.switch_to_app(gam::APP_NAME_{}, token).expect(\"couldn't raise app\");
             Ok(())
         }},",
             index,
             app_name.to_uppercase()
-        ).unwrap();
+        )
+        .unwrap();
     }
-    writeln!(menu, r####"        _ => Err(AppDispatchError::IndexNotFound(index)),
+    writeln!(
+        menu,
+        r####"        _ => Err(AppDispatchError::IndexNotFound(index)),
     }}
 }}
 
 pub(crate) fn app_index_to_name(index: usize) -> Result<&'static str, AppDispatchError> {{
-    match index {{"####).unwrap();
+    match index {{"####
+    )
+    .unwrap();
     for (index, (_, _manifest)) in working_set.iter().enumerate() {
         for name in _manifest.menu_name.keys() {
-            writeln!(menu, "        {} => Ok(t!(\"{}\", xous::LANG)),",
-                index,
-                name,
-            ).unwrap();
+            writeln!(
+                menu,
+                "        {} => Ok(t!(\"{}\", xous::LANG)),",
+                index, name,
+            )
+            .unwrap();
         }
     }
-    writeln!(menu, r####"        _ => Err(AppDispatchError::IndexNotFound(index)),
+    writeln!(
+        menu,
+        r####"        _ => Err(AppDispatchError::IndexNotFound(index)),
     }}
 }}
 
 pub(crate) fn app_menu_items(menu_items: &mut Vec::<MenuItem>, status_conn: u32) {{
-"####).unwrap();
+"####
+    )
+    .unwrap();
     for (index, (_app_name, manifest)) in working_set.iter().enumerate() {
         writeln!(menu, "    menu_items.push(MenuItem {{",).unwrap();
-        assert!(manifest.menu_name.len() == 1, "Improper menu name record entry");
+        assert!(
+            manifest.menu_name.len() == 1,
+            "Improper menu name record entry"
+        );
         for name in manifest.menu_name.keys() {
-            writeln!(menu, "        name: xous_ipc::String::from_str(t!(\"{}\", xous::LANG)),",
-            name).unwrap();
+            writeln!(
+                menu,
+                "        name: xous_ipc::String::from_str(t!(\"{}\", xous::LANG)),",
+                name
+            )
+            .unwrap();
         }
         writeln!(menu, "        action_conn: Some(status_conn),",).unwrap();
-        writeln!(menu, "        action_opcode: StatusOpcode::SwitchToApp.to_u32().unwrap(),",).unwrap();
-        writeln!(menu, "        action_payload: MenuPayload::Scalar([{}, 0, 0, 0]),", index).unwrap();
+        writeln!(
+            menu,
+            "        action_opcode: StatusOpcode::SwitchToApp.to_u32().unwrap(),",
+        )
+        .unwrap();
+        writeln!(
+            menu,
+            "        action_payload: MenuPayload::Scalar([{}, 0, 0, 0]),",
+            index
+        )
+        .unwrap();
         writeln!(menu, "        close_on_select: true,",).unwrap();
         writeln!(menu, "    }});\n",).unwrap();
     }
@@ -1345,25 +1457,24 @@ pub(crate) fn app_menu_items(menu_items: &mut Vec::<MenuItem>, status_conn: u32)
 }
 
 fn overwrite_if_changed(new_string: &String, old_file: &str) {
-    let original = match OpenOptions::new()
-    .read(true)
-    .open(old_file) {
+    let original = match OpenOptions::new().read(true).open(old_file) {
         Ok(mut ref_file) => {
             let mut buf = String::new();
-            ref_file.read_to_string(&mut buf).expect("UTF-8 error in previous localization file");
+            ref_file
+                .read_to_string(&mut buf)
+                .expect("UTF-8 error in previous localization file");
             buf
         }
-        _ => {
-            String::new()
-        }
+        _ => String::new(),
     };
     if &original != new_string {
         let mut new_file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(old_file).expect("Can't open our gam manifest for writing");
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(old_file)
+            .expect("Can't open our gam manifest for writing");
         write!(new_file, "{}", new_string).unwrap()
     }
 }
