@@ -11,18 +11,18 @@ mod app_autogen;
 
 use com::api::*;
 use core::fmt::Write;
-use num_traits::*;
-use xous::{msg_scalar_unpack, send_message, Message, CID};
-use graphics_server::*;
-use graphics_server::api::GlyphStyle;
-use locales::t;
 use gam::modal::*;
 use gam::{GamObjectList, GamObjectType};
+use graphics_server::api::GlyphStyle;
+use graphics_server::*;
 use llio::Weekday;
+use locales::t;
+use num_traits::*;
+use xous::{msg_scalar_unpack, send_message, Message, CID};
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 #[cfg_attr(
     not(any(target_os = "none", target_os = "xous")),
@@ -178,8 +178,11 @@ fn xmain() -> ! {
     const CPU_BAR_WIDTH: i16 = 50;
     let time_rect = Rectangle::new_with_style(
         Point::new(0, 0),
-        Point::new(screensize.x / 2 - CPU_BAR_WIDTH / 2 - 1, screensize.y / 2 - 1),
-        DrawStyle::new(PixelColor::Light, PixelColor::Light, 0)
+        Point::new(
+            screensize.x / 2 - CPU_BAR_WIDTH / 2 - 1,
+            screensize.y / 2 - 1,
+        ),
+        DrawStyle::new(PixelColor::Light, PixelColor::Light, 0),
     );
     let cpuload_rect = Rectangle::new_with_style(
         Point::new(screensize.x / 2 - CPU_BAR_WIDTH / 2, 0),
@@ -202,7 +205,8 @@ fn xmain() -> ! {
     uptime_tv.style = GlyphStyle::Regular;
     uptime_tv.draw_border = false;
     uptime_tv.margin = Point::new(3, 0);
-    write!(uptime_tv, "{}", t!("secnote.startup", xous::LANG)).expect("|status: couldn't init uptime text");
+    write!(uptime_tv, "{}", t!("secnote.startup", xous::LANG))
+        .expect("|status: couldn't init uptime text");
     gam.post_textview(&mut uptime_tv)
         .expect("|status: can't draw battery stats");
     log::debug!("|status: screensize as reported: {:?}", screensize);
@@ -251,14 +255,22 @@ fn xmain() -> ! {
     security_tv.style = GlyphStyle::Regular;
     security_tv.draw_border = false;
     security_tv.margin = Point::new(0, 0);
-    security_tv.token = gam.claim_token(gam::STATUS_BAR_NAME).expect("couldn't request token"); // this is a shared magic word to identify this process
+    security_tv.token = gam
+        .claim_token(gam::STATUS_BAR_NAME)
+        .expect("couldn't request token"); // this is a shared magic word to identify this process
     security_tv.clear_area = true;
     security_tv.invert = true;
     write!(&mut security_tv, "{}", t!("secnote.startup", xous::LANG)).unwrap();
     gam.post_textview(&mut security_tv).unwrap();
-    gam.draw_line(status_gid, Line::new_with_style(
-        Point::new(0, screensize.y), screensize,
-        DrawStyle::new(PixelColor::Light, PixelColor::Light, 1))).unwrap();
+    gam.draw_line(
+        status_gid,
+        Line::new_with_style(
+            Point::new(0, screensize.y),
+            screensize,
+            DrawStyle::new(PixelColor::Light, PixelColor::Light, 1),
+        ),
+    )
+    .unwrap();
     log::trace!("status redraw## initial");
     gam.redraw().unwrap(); // initial boot redraw
 
@@ -309,7 +321,10 @@ fn xmain() -> ! {
             }
         });
     };
-    sec_notes.lock().unwrap().insert("current_app".to_string(), format!("Running: Shellchat").to_string()); // this is the default app on boot
+    sec_notes.lock().unwrap().insert(
+        "current_app".to_string(),
+        format!("Running: Shellchat").to_string(),
+    ); // this is the default app on boot
 
     let mut stats_phase: usize = 0;
 
@@ -359,7 +374,9 @@ fn xmain() -> ! {
         t!("rtc.sunday", xous::LANG),
     ];
     log::debug!("subscribe to wifi updates");
-    netmgr.wifi_state_subscribe(cb_cid, StatusOpcode::WifiStats.to_u32().unwrap()).unwrap();
+    netmgr
+        .wifi_state_subscribe(cb_cid, StatusOpcode::WifiStats.to_u32().unwrap())
+        .unwrap();
     let mut wifi_status: WlanStatus = WlanStatus::from_ipc(WlanStatusIpc::default());
     log::info!("|status: starting main loop"); // don't change this -- factory test looks for this exact string
     loop {
@@ -375,7 +392,8 @@ fn xmain() -> ! {
                 // 0xdddd and 0xffff are what are returned when the EC is too busy to respond/hung, or in reset, respectively
                 if stats.current == -8739 /* 0xdddd */
                 || stats.voltage == 0xdddd || stats.voltage == 0xffff
-                || stats.soc == 0xdd || stats.soc == 0xff {
+                || stats.soc == 0xdd || stats.soc == 0xff
+                {
                     write!(&mut battstats_tv, "{}", t!("stats.measuring", xous::LANG)).unwrap();
                 } else {
                     // toggle between two views of the data every time we have a status update
@@ -389,7 +407,15 @@ fn xmain() -> ! {
                     };
                     wattage = wattage.abs();
                     if battstats_phase {
-                        write!(&mut battstats_tv, "{:.3}W{}{:.2}V {}%", wattage, sign, stats.voltage as f32 / 1000.0, stats.soc).unwrap();
+                        write!(
+                            &mut battstats_tv,
+                            "{:.3}W{}{:.2}V {}%",
+                            wattage,
+                            sign,
+                            stats.voltage as f32 / 1000.0,
+                            stats.soc
+                        )
+                        .unwrap();
                     } else {
                         if let Some(ssid) = wifi_status.ssid {
                             write!(
@@ -397,13 +423,15 @@ fn xmain() -> ! {
                                 "{} -{}dBm",
                                 ssid.name.as_str().unwrap_or("UTF-8 Erorr"),
                                 ssid.rssi,
-                            ).unwrap();
+                            )
+                            .unwrap();
                         } else {
                             write!(
                                 &mut battstats_tv,
                                 "{}",
                                 t!("stats.disconnected", xous::LANG)
-                            ).unwrap();
+                            )
+                            .unwrap();
                         }
                     }
                 }
@@ -413,7 +441,9 @@ fn xmain() -> ! {
                     if bounds.height() as i16 > screensize.y / 2 + 1 {
                         // the clipping rectangle limits the bounds to the overall height of the status area, so
                         // the overlap between status and secnotes must be managed within this server
-                        log::info!("Status text overstepped its intended bound. Forcing secnotes redraw.");
+                        log::info!(
+                            "Status text overstepped its intended bound. Forcing secnotes redraw."
+                        );
                         secnotes_force_redraw = true;
                     }
                 }
@@ -423,25 +453,29 @@ fn xmain() -> ! {
                 let buffer = unsafe {
                     xous_ipc::Buffer::from_memory_message(msg.body.memory_message().unwrap())
                 };
-                wifi_status = WlanStatus::from_ipc(buffer.to_original::<com::WlanStatusIpc, _>().unwrap());
-            },
+                wifi_status =
+                    WlanStatus::from_ipc(buffer.to_original::<com::WlanStatusIpc, _>().unwrap());
+            }
             Some(StatusOpcode::Pump) => {
                 let elapsed_time = ticktimer.elapsed_ms();
-                { // update the CPU load bar
+                {
+                    // update the CPU load bar
                     let mut draw_list = GamObjectList::new(status_gid);
                     draw_list.push(GamObjectType::Rect(cpuload_rect)).unwrap();
                     let (latest_activity, period) = llio
                         .activity_instantaneous()
                         .expect("couldn't get CPU activity");
-                    let activity_to_width = ((latest_activity as f32) / (period as f32)) * (cpuload_rect.width() - 4) as f32;
-                    draw_list.push(GamObjectType::Rect(
-                        Rectangle::new_coords_with_style(
+                    let activity_to_width = ((latest_activity as f32) / (period as f32))
+                        * (cpuload_rect.width() - 4) as f32;
+                    draw_list
+                        .push(GamObjectType::Rect(Rectangle::new_coords_with_style(
                             cpuload_rect.tl().x + 2,
                             cpuload_rect.tl().y + 2,
                             cpuload_rect.tl().x + 2 + activity_to_width as i16,
                             cpuload_rect.br().y - 2,
-                            DrawStyle::new(PixelColor::Dark, PixelColor::Dark, 0))
-                    )).unwrap();
+                            DrawStyle::new(PixelColor::Dark, PixelColor::Dark, 0),
+                        )))
+                        .unwrap();
                     gam.draw_list(draw_list).expect("couldn't draw object list");
                 }
 
@@ -492,9 +526,15 @@ fn xmain() -> ! {
 
                     secnotes_force_redraw = false;
                     gam.post_textview(&mut security_tv).unwrap();
-                    gam.draw_line(status_gid, Line::new_with_style(
-                        Point::new(0, screensize.y), screensize,
-                        DrawStyle::new(PixelColor::Light, PixelColor::Light, 1))).unwrap();
+                    gam.draw_line(
+                        status_gid,
+                        Line::new_with_style(
+                            Point::new(0, screensize.y),
+                            screensize,
+                            DrawStyle::new(PixelColor::Light, PixelColor::Light, 1),
+                        ),
+                    )
+                    .unwrap();
                 }
                 if (stats_phase % batt_interval) == (batt_interval - 1) {
                     com.req_batt_stats()
@@ -548,7 +588,8 @@ fn xmain() -> ! {
                     }
                 }
 
-                { // update the time field
+                {
+                    // update the time field
                     // have to clear the entire rectangle area, because the text has a variable width and dirty text will remain if the text is shortened
                     gam.draw_rectangle(status_gid, time_rect).ok();
                     uptime_tv.clear_str();
@@ -560,10 +601,7 @@ fn xmain() -> ! {
                         )
                         .unwrap();
                     } else {
-                        write!(
-                            &mut uptime_tv,
-                            "Invalid RTC"
-                        ).unwrap();
+                        write!(&mut uptime_tv, "Invalid RTC").unwrap();
                     }
                     // use ticktimer, not stats_phase, because stats_phase encodes some phase drift due to task-switching overhead
                     write!(
@@ -609,71 +647,113 @@ fn xmain() -> ! {
                 let years: u8;
                 let weekday: Weekday;
 
-                months = modals.get_text(
-                    t!("rtc.month", xous::LANG),
-                    Some(rtc_ux_validator), Some(ValidatorOp::UxMonth.to_u32().unwrap())
-                ).expect("couldn't get month").as_str()
-                .parse::<u8>().expect("pre-validated input failed to re-parse!");
+                months = modals
+                    .get_text(
+                        t!("rtc.month", xous::LANG),
+                        Some(rtc_ux_validator),
+                        Some(ValidatorOp::UxMonth.to_u32().unwrap()),
+                    )
+                    .expect("couldn't get month")
+                    .as_str()
+                    .parse::<u8>()
+                    .expect("pre-validated input failed to re-parse!");
                 log::debug!("got months {}", months);
 
-                days = modals.get_text(
-                    t!("rtc.day", xous::LANG),
-                    Some(rtc_ux_validator), Some(ValidatorOp::UxDay.to_u32().unwrap())
-                ).expect("couldn't get month").as_str()
-                .parse::<u8>().expect("pre-validated input failed to re-parse!");
+                days = modals
+                    .get_text(
+                        t!("rtc.day", xous::LANG),
+                        Some(rtc_ux_validator),
+                        Some(ValidatorOp::UxDay.to_u32().unwrap()),
+                    )
+                    .expect("couldn't get month")
+                    .as_str()
+                    .parse::<u8>()
+                    .expect("pre-validated input failed to re-parse!");
                 log::debug!("got days {}", days);
 
-                years = modals.get_text(
-                    t!("rtc.year", xous::LANG),
-                    Some(rtc_ux_validator), Some(ValidatorOp::UxYear.to_u32().unwrap())
-                ).expect("couldn't get month").as_str()
-                .parse::<u8>().expect("pre-validated input failed to re-parse!");
+                years = modals
+                    .get_text(
+                        t!("rtc.year", xous::LANG),
+                        Some(rtc_ux_validator),
+                        Some(ValidatorOp::UxYear.to_u32().unwrap()),
+                    )
+                    .expect("couldn't get month")
+                    .as_str()
+                    .parse::<u8>()
+                    .expect("pre-validated input failed to re-parse!");
                 log::debug!("got years {}", years);
 
                 for dow in day_of_week_list.iter() {
-                    modals.add_list_item(dow).expect("couldn't build day of week list");
+                    modals
+                        .add_list_item(dow)
+                        .expect("couldn't build day of week list");
                 }
-                let payload = modals.get_radiobutton(t!("rtc.day_of_week", xous::LANG)).expect("couldn't get day of week");
-                weekday =
-                    if payload.as_str() == t!("rtc.monday", xous::LANG) {
-                        Weekday::Monday
-                    } else if payload.as_str() == t!("rtc.tuesday", xous::LANG) {
-                        Weekday::Tuesday
-                    } else if payload.as_str() == t!("rtc.wednesday", xous::LANG) {
-                        Weekday::Wednesday
-                    } else if payload.as_str() == t!("rtc.thursday", xous::LANG) {
-                        Weekday::Thursday
-                    } else if payload.as_str() == t!("rtc.friday", xous::LANG) {
-                        Weekday::Friday
-                    } else if payload.as_str() == t!("rtc.saturday", xous::LANG) {
-                        Weekday::Saturday
-                    } else {
-                        Weekday::Sunday
-                    };
+                let payload = modals
+                    .get_radiobutton(t!("rtc.day_of_week", xous::LANG))
+                    .expect("couldn't get day of week");
+                weekday = if payload.as_str() == t!("rtc.monday", xous::LANG) {
+                    Weekday::Monday
+                } else if payload.as_str() == t!("rtc.tuesday", xous::LANG) {
+                    Weekday::Tuesday
+                } else if payload.as_str() == t!("rtc.wednesday", xous::LANG) {
+                    Weekday::Wednesday
+                } else if payload.as_str() == t!("rtc.thursday", xous::LANG) {
+                    Weekday::Thursday
+                } else if payload.as_str() == t!("rtc.friday", xous::LANG) {
+                    Weekday::Friday
+                } else if payload.as_str() == t!("rtc.saturday", xous::LANG) {
+                    Weekday::Saturday
+                } else {
+                    Weekday::Sunday
+                };
                 log::debug!("got weekday {:?}", weekday);
 
-                hours = modals.get_text(
-                    t!("rtc.hour", xous::LANG),
-                    Some(rtc_ux_validator), Some(ValidatorOp::UxHour.to_u32().unwrap())
-                ).expect("couldn't get hour").as_str()
-                .parse::<u8>().expect("pre-validated input failed to re-parse!");
+                hours = modals
+                    .get_text(
+                        t!("rtc.hour", xous::LANG),
+                        Some(rtc_ux_validator),
+                        Some(ValidatorOp::UxHour.to_u32().unwrap()),
+                    )
+                    .expect("couldn't get hour")
+                    .as_str()
+                    .parse::<u8>()
+                    .expect("pre-validated input failed to re-parse!");
                 log::debug!("got hours {}", hours);
 
-                mins = modals.get_text(
-                    t!("rtc.minute", xous::LANG),
-                    Some(rtc_ux_validator), Some(ValidatorOp::UxMinute.to_u32().unwrap())
-                ).expect("couldn't get minutes").as_str()
-                .parse::<u8>().expect("pre-validated input failed to re-parse!");
+                mins = modals
+                    .get_text(
+                        t!("rtc.minute", xous::LANG),
+                        Some(rtc_ux_validator),
+                        Some(ValidatorOp::UxMinute.to_u32().unwrap()),
+                    )
+                    .expect("couldn't get minutes")
+                    .as_str()
+                    .parse::<u8>()
+                    .expect("pre-validated input failed to re-parse!");
                 log::debug!("got minutes {}", mins);
 
-                secs = modals.get_text(
-                    t!("rtc.seconds", xous::LANG),
-                    Some(rtc_ux_validator), Some(ValidatorOp::UxSeconds.to_u32().unwrap())
-                ).expect("couldn't get seconds").as_str()
-                .parse::<u8>().expect("pre-validated input failed to re-parse!");
+                secs = modals
+                    .get_text(
+                        t!("rtc.seconds", xous::LANG),
+                        Some(rtc_ux_validator),
+                        Some(ValidatorOp::UxSeconds.to_u32().unwrap()),
+                    )
+                    .expect("couldn't get seconds")
+                    .as_str()
+                    .parse::<u8>()
+                    .expect("pre-validated input failed to re-parse!");
                 log::debug!("got seconds {}", secs);
 
-                log::info!("Setting time: {}/{}/{} {}:{}:{} {:?}", months, days, years, hours, mins, secs, weekday);
+                log::info!(
+                    "Setting time: {}/{}/{} {}:{}:{} {:?}",
+                    months,
+                    days,
+                    years,
+                    hours,
+                    mins,
+                    secs,
+                    weekday
+                );
                 let dt = llio::DateTime {
                     seconds: secs,
                     minutes: mins,
@@ -681,7 +761,7 @@ fn xmain() -> ! {
                     days,
                     months,
                     years,
-                    weekday
+                    weekday,
                 };
                 rtc.set_rtc(dt).expect("couldn't set the current time");
                 pump_run.store(true, Ordering::Relaxed); // stop status updates while we do this
@@ -707,12 +787,14 @@ fn xmain() -> ! {
             }
             Some(StatusOpcode::SubmenuPddb) => {
                 ticktimer.sleep_ms(100).ok(); // yield for a moment to allow the previous menu to close
-                gam.raise_menu(gam::PDDB_MENU_NAME).expect("couldn't raise PDDB submenu");
-            },
+                gam.raise_menu(gam::PDDB_MENU_NAME)
+                    .expect("couldn't raise PDDB submenu");
+            }
             Some(StatusOpcode::SubmenuApp) => {
                 ticktimer.sleep_ms(100).ok(); // yield for a moment to allow the previous menu to close
-                gam.raise_menu(gam::APP_MENU_NAME).expect("couldn't raise App submenu");
-            },
+                gam.raise_menu(gam::APP_MENU_NAME)
+                    .expect("couldn't raise App submenu");
+            }
             Some(StatusOpcode::SubmenuKbd) => {
                 log::info!("getting keyboard map");
                 let map = kbd.get_keymap().expect("couldn't get key mapping");
@@ -720,8 +802,9 @@ fn xmain() -> ! {
                 kbd_menumatic.set_index(map.into());
                 log::info!("raising keyboard menu");
                 ticktimer.sleep_ms(100).ok(); // yield for a moment to allow the previous menu to close
-                gam.raise_menu(gam::KBD_MENU_NAME).expect("couldn't raise keyboard layout submenu");
-            },
+                gam.raise_menu(gam::KBD_MENU_NAME)
+                    .expect("couldn't raise keyboard layout submenu");
+            }
             Some(StatusOpcode::SetKeyboard) => msg_scalar_unpack!(msg, code, _, _, _, {
                 let map = keyboard::KeyMap::from(code);
                 kbd.set_keymap(map).expect("couldn't set keyboard mapping");
@@ -729,33 +812,36 @@ fn xmain() -> ! {
             Some(StatusOpcode::SwitchToShellchat) => {
                 ticktimer.sleep_ms(100).ok();
                 sec_notes.lock().unwrap().remove(&"current_app".to_string());
-                sec_notes.lock().unwrap().insert("current_app".to_string(), format!("Running: Shellchat").to_string());
-                gam.switch_to_app(gam::APP_NAME_SHELLCHAT, security_tv.token.unwrap()).expect("couldn't raise shellchat");
+                gam.switch_to_app(gam::APP_NAME_SHELLCHAT, security_tv.token.unwrap())
+                    .expect("couldn't raise shellchat");
                 secnotes_force_redraw = true;
                 send_message(
                     cb_cid,
                     Message::new_scalar(StatusOpcode::Pump.to_usize().unwrap(), 0, 0, 0, 0),
-                ).expect("couldn't trigger status update");
-            },
+                )
+                .expect("couldn't trigger status update");
+            }
             Some(StatusOpcode::SwitchToApp) => msg_scalar_unpack!(msg, index, _, _, _, {
                 ticktimer.sleep_ms(100).ok();
                 let app_name = app_autogen::app_index_to_name(index).expect("app index not found");
-                app_autogen::app_dispatch(&gam, security_tv.token.unwrap(), index).expect("cannot switch to app");
-                sec_notes.lock().unwrap().remove(&"current_app".to_string());
-                sec_notes.lock().unwrap().insert("current_app".to_string(), format!("Running: {}", app_name).to_string());
-                secnotes_force_redraw = true;
-                send_message(
-                    cb_cid,
-                    Message::new_scalar(StatusOpcode::Pump.to_usize().unwrap(), 0, 0, 0, 0),
-                ).expect("couldn't trigger status update");
+                app_autogen::app_dispatch(&gam, security_tv.token.unwrap(), index)
+                    .expect("cannot switch to app");
+                sec_notes.lock().unwrap().insert(
+                    "current_app".to_string(),
+                    format!("Current app: {}", app_name).to_string(),
+                );
             }),
             Some(StatusOpcode::TrySuspend) => {
                 if ((llio.adc_vbus().unwrap() as f64) * 0.005033) > 1.5 {
-                    modals.show_notification(t!("mainmenu.cant_sleep", xous::LANG)).expect("couldn't notify that power is plugged in");
+                    modals
+                        .show_notification(t!("mainmenu.cant_sleep", xous::LANG))
+                        .expect("couldn't notify that power is plugged in");
                 } else {
-                    susres.initiate_suspend().expect("couldn't initiate suspend op");
+                    susres
+                        .initiate_suspend()
+                        .expect("couldn't initiate suspend op");
                 }
-            },
+            }
             Some(StatusOpcode::Quit) => {
                 break;
             }
@@ -796,40 +882,48 @@ fn rtc_ux_validator(input: TextEntryPayload, opcode: u32) -> Option<ValidatorErr
         Ok(input_int) => input_int,
         _ => return Some(ValidatorErr::from_str(t!("rtc.integer_err", xous::LANG))),
     };
-    log::trace!("validating input {}, parsed as {} for opcode {}", text_str, input_int, opcode);
+    log::trace!(
+        "validating input {}, parsed as {} for opcode {}",
+        text_str,
+        input_int,
+        opcode
+    );
     match FromPrimitive::from_u32(opcode) {
         Some(ValidatorOp::UxMonth) => {
             if input_int < 1 || input_int > 12 {
-                return Some(ValidatorErr::from_str(t!("rtc.range_err", xous::LANG)))
+                return Some(ValidatorErr::from_str(t!("rtc.range_err", xous::LANG)));
             }
         }
         Some(ValidatorOp::UxDay) => {
             if input_int < 1 || input_int > 31 {
-                return Some(ValidatorErr::from_str(t!("rtc.range_err", xous::LANG)))
+                return Some(ValidatorErr::from_str(t!("rtc.range_err", xous::LANG)));
             }
         }
         Some(ValidatorOp::UxYear) => {
             if input_int > 99 {
-                return Some(ValidatorErr::from_str(t!("rtc.range_err", xous::LANG)))
+                return Some(ValidatorErr::from_str(t!("rtc.range_err", xous::LANG)));
             }
         }
         Some(ValidatorOp::UxHour) => {
             if input_int > 23 {
-                return Some(ValidatorErr::from_str(t!("rtc.range_err", xous::LANG)))
+                return Some(ValidatorErr::from_str(t!("rtc.range_err", xous::LANG)));
             }
         }
         Some(ValidatorOp::UxMinute) => {
             if input_int > 59 {
-                return Some(ValidatorErr::from_str(t!("rtc.range_err", xous::LANG)))
+                return Some(ValidatorErr::from_str(t!("rtc.range_err", xous::LANG)));
             }
         }
         Some(ValidatorOp::UxSeconds) => {
             if input_int > 59 {
-                return Some(ValidatorErr::from_str(t!("rtc.range_err", xous::LANG)))
+                return Some(ValidatorErr::from_str(t!("rtc.range_err", xous::LANG)));
             }
         }
         _ => {
-            log::error!("internal error: invalid opcode was sent to validator: {:?}", opcode);
+            log::error!(
+                "internal error: invalid opcode was sent to validator: {:?}",
+                opcode
+            );
             panic!("internal error: invalid opcode was sent to validator");
         }
     }
