@@ -1183,6 +1183,7 @@ dependencies = [
  "log",
  "log-server",
  "loirc",
+ "modals",
  "num-derive",
  "num-traits",
  "rkyv",
