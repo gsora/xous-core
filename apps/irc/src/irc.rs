@@ -105,7 +105,19 @@ impl ChannelListener {
 impl Listener for ChannelListener {
     /// On any event we receive, print the Debug of it.
     fn any(&mut self, _: Arc<Irc>, event: &Event) {
-        println!("{:?}", &event);
+        if let Event::Message(msg) = event {
+            if let Code::RplMotd = msg.code {
+                let msg = NewMessage {
+                    sender: Some(xous_ipc::String::from_str("MOTD")),
+                    content: xous_ipc::String::from_str(format!("{:?}", msg.args.get(1).unwrap())),
+                };
+
+                let msgbuf = Buffer::into_buf(msg).expect("cannot mutate into buffer");
+                msgbuf
+                    .send(self.main_cid, self.callback_new_channel_message_received)
+                    .expect("cannot send new message to repl server");
+            }
+        }
     }
 
     /// When the welcome message is received, join the channel.

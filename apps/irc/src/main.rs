@@ -4,6 +4,7 @@
 mod irc;
 use irc::*;
 mod repl;
+use modals::Modals;
 use repl::*;
 mod cmds;
 use cmds::*;
@@ -45,17 +46,10 @@ fn xmain() -> ! {
         .expect("can't register server");
     // log::trace!("registered with NS -- {:?}", sid);
 
-    let connection = IRCConnection {
-        callback_sid: sid,
-        nickname: "gsora_precursor".to_string(),
-        server: "irc.libera.chat:6667".to_string(),
-        channel: DEFAULT_CHANNEL.to_string(),
-        callback_new_message: ReplOp::MessageReceived.to_u32().unwrap(),
-    };
+    let m = modals::Modals::new(&xns).expect("cannot connect to modals server");
+    let mut connection_modal_shown = false;
 
-    let new_message_sid = connection.connect();
-    let new_message_cid =
-        xous::connect(new_message_sid).expect("cannot connect to irc new message send");
+    let mut new_message_cid: Option<xous::CID> = None;
 
     let mut repl = Repl::new(&xns, sid);
     let mut update_repl = true;
@@ -81,6 +75,10 @@ fn xmain() -> ! {
             }
             Some(ReplOp::MessageSent) => {}
             Some(ReplOp::Line) => {
+                if new_message_cid.is_none() {
+                    continue;
+                }
+
                 let buffer =
                     unsafe { Buffer::from_memory_message(msg.body.memory_message().unwrap()) };
                 let s = buffer.as_flat::<xous_ipc::String<4000>, _>().unwrap();
@@ -97,7 +95,10 @@ fn xmain() -> ! {
 
                     let msgbuf = Buffer::into_buf(msg).expect("cannot mutate into buffer");
                     msgbuf
-                        .send(new_message_cid, IRCOp::MessageSent.to_u32().unwrap())
+                        .send(
+                            new_message_cid.unwrap(),
+                            IRCOp::MessageSent.to_u32().unwrap(),
+                        )
                         .expect("cannot send new message to repl server");
                 }
 
@@ -122,6 +123,10 @@ fn xmain() -> ! {
                     }
                     gam::FocusState::Foreground => {
                         allow_redraw = true;
+                        if !connection_modal_shown {
+                            new_message_cid = Some(show_connection_modal(&m, sid));
+                            connection_modal_shown = true
+                        }
                     }
                 }
             }),
@@ -149,4 +154,61 @@ fn xmain() -> ! {
     xous::destroy_server(sid).unwrap();
     log::trace!("quitting");
     xous::terminate_process(0)
+}
+
+// #[cfg(any(target_os = "none", target_os = "xous"))]
+// fn show_connection_modal(modals: &Modals, callback_sid: xous::SID) -> xous::CID {
+//     modals
+//         .show_notification("Please provide IRC connection preferences :-)")
+//         .unwrap();
+//     let server = modals
+//         .get_text("Server address", None, None)
+//         .expect("cannot show server text box");
+//     let nickname = modals
+//         .get_text("Nickname", None, None)
+//         .expect("cannot show nickname text box");
+//     let channel = modals
+//         .get_text("Channel", None, None)
+//         .expect("cannot show channel text box");
+
+//     let connection = IRCConnection {
+//         callback_sid,
+//         nickname: nickname.as_str().to_string(),
+//         server: server.as_str().to_string(),
+//         channel: channel.as_str().to_string(),
+//         callback_new_message: ReplOp::MessageReceived.to_u32().unwrap(),
+//     };
+
+//     let new_message_sid = connection.connect();
+
+//     xous::connect(new_message_sid).expect("cannot connect to irc new message send")
+// }
+
+// #[cfg(not(any(target_os = "none", target_os = "xous")))]
+fn show_connection_modal(modals: &Modals, callback_sid: xous::SID) -> xous::CID {
+    // use std::str::FromStr;
+
+    // modals
+    //     .show_notification("Please provide IRC connection preferences :-)")
+    //     .unwrap();
+
+    // let connection = IRCConnection {
+    //     callback_sid,
+    //     nickname: String::from_str("gsora_precursor").unwrap(),
+    //     server: String::from_str("irc.libera.chat:6667").unwrap(),
+    //     channel: String::from_str("#precursor_irc_testing").unwrap(),
+    //     callback_new_message: ReplOp::MessageReceived.to_u32().unwrap(),
+    // };
+
+    // let new_message_sid = connection.connect();
+
+    // xous::connect(new_message_sid).expect("cannot connect to irc new message send")
+
+    // TODO: add connection list here
+    modals.add_list_item("Add new").unwrap();
+    let selected_option = modals
+        .get_radiobutton("Choose a network to connect to:")
+        .unwrap();
+
+    xous::CID::from_i32(22).unwrap()
 }
