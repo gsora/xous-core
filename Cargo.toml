@@ -92,6 +92,7 @@ members = [
   "apps/ball",
   "apps/hello",
   "apps/repl",
+  "apps/irc",
   "services/libstd-test",
   "services/ffi-test",
   "services/tts",
