@@ -2,11 +2,12 @@ use crate::println;
 
 pub const SIGBLOCK_SIZE: usize = 0x1000;
 
-const VERSION_STR: &'static str = "Xous OS Loader v0.9.3\n\r";
+const VERSION_STR: &'static str = "Xous OS Loader v0.9.4\n\r";
 // v0.9.0 -- initial version
 // v0.9.1 -- booting with hw acceleration, and "simplest signature" check on the entire xous.img blob
 // v0.9.2 -- add version and length check between header and signed area
 // v0.9.3 -- add lockout of key ROM in die() routine
+// v0.9.4 -- monorepo conversion
 
 pub const STACK_LEN: u32 = 8192 - (7 * 4); // 7 words for backup kernel args
 pub const STACK_TOP: u32 = 0x4100_0000 - STACK_LEN;
@@ -231,7 +232,7 @@ impl Keyrom {
         }
         true
     }
-    fn read_ed25519(&mut self, key_base: KeyLoc) -> Result<ed25519_dalek::PublicKey, &'static str> {
+    fn read_ed25519(&mut self, key_base: KeyLoc) -> Result<ed25519_dalek_loader::PublicKey, &'static str> {
         let mut pk_bytes: [u8; 32] = [0; 32];
         for (offset, pk_word) in pk_bytes.chunks_exact_mut(4).enumerate() {
             self.csr.wfo(utra::keyrom::ADDRESS_ADDRESS, key_base as u32 + offset as u32);
@@ -240,7 +241,7 @@ impl Keyrom {
                 *dst_byte = src_byte;
             }
         }
-        ed25519_dalek::PublicKey::from_bytes(&pk_bytes).or(Err("invalid public key"))
+        ed25519_dalek_loader::PublicKey::from_bytes(&pk_bytes).or(Err("invalid public key"))
     }
     /// locks all the keys from future read-out
     pub fn lock(&mut self) {
@@ -270,6 +271,23 @@ pub fn validate_xous_img(xous_img_offset: *const u32) -> bool {
     };
     gfx.init(100_000_000);
 
+    #[cfg(feature = "renode-bypass")]
+    {
+        let (_top, bottom) = gfx.fb.split_at_mut(gfx.fb.len() / 2);
+        for (i, word) in bottom.iter_mut().enumerate() {
+            *word = 0xff00_ff00;
+        }
+        gfx.flush();
+        gfx.msg("RENODE BYPASS SELECTED\n\r", &mut cursor);
+        gfx.msg("THIS IS A SECURITY VIOLATION\n\r", &mut cursor);
+        gfx.msg("ALL SIGCHECKS SKIPPED\n\r", &mut cursor);
+        let mut keyrom = Keyrom::new();
+        keyrom.lock();
+        gfx.set_devboot();
+        gfx.flush();
+        return true;
+        // this will emit a warning -- we want that. this is not a natural or intended normal code exit!
+    }
     // insert a pattern of alternating 0101/1010 to create a "gray effect" on the bottom half of the fb
     // note that the gray has "stripes" every 32 bits but it's visually easier to look at than stripes every other bit
     let (_top, bottom) = gfx.fb.split_at_mut(gfx.fb.len() / 2);
@@ -382,8 +400,8 @@ pub fn validate_xous_img(xous_img_offset: *const u32) -> bool {
             die();
         }
 
-        let ed25519_signature = ed25519_dalek::Signature::from(sig.signature);
-        use ed25519_dalek::Verifier;
+        let ed25519_signature = ed25519_dalek_loader::Signature::from(sig.signature);
+        use ed25519_dalek_loader::Verifier;
         gfx.msg("Checking signature...\n\r", &mut cursor);
         if pubkey.verify(image, &ed25519_signature).is_ok() {
             gfx.msg("Signature check passed\n\r", &mut cursor);
