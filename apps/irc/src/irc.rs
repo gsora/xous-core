@@ -22,15 +22,6 @@ pub(crate) struct NewMessage {
     pub sender: Option<xous_ipc::String<MAX_NICKNAME_CHARS>>,
 }
 
-impl NewMessage {
-    pub fn formatted(&self) -> String {
-        match self.sender {
-            Some(sender) => format!("{} says:\n{}", sender, self.content),
-            None => format!("{}", self.content),
-        }
-    }
-}
-
 struct ChannelListener {
     channel: String,
 
@@ -107,9 +98,14 @@ impl Listener for ChannelListener {
     fn any(&mut self, _: Arc<Irc>, event: &Event) {
         if let Event::Message(msg) = event {
             if let Code::RplMotd = msg.code {
+                let msg = msg.args.get(1).unwrap();
+                if msg.is_empty() {
+                    return;
+                }
+
                 let msg = NewMessage {
                     sender: Some(xous_ipc::String::from_str("MOTD")),
-                    content: xous_ipc::String::from_str(format!("{:?}", msg.args.get(1).unwrap())),
+                    content: xous_ipc::String::from_str(format!("{:?}", msg)),
                 };
 
                 let msgbuf = Buffer::into_buf(msg).expect("cannot mutate into buffer");

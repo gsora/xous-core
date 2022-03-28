@@ -8,6 +8,7 @@ use xous::MessageEnvelope;
 
 #[derive(Debug)]
 pub struct History {
+    pub sender: Option<String>,
     // the history record
     pub text: String,
     // if true, this was input from the user; if false, it's a response from the shell
@@ -41,6 +42,8 @@ pub(crate) struct Repl {
 
     // our security token for making changes to our record on the GAM
     token: [u32; 4],
+
+    flip: bool,
 }
 impl Repl {
     pub(crate) fn new(xns: &xous_names::XousNames, sid: xous::SID) -> Self {
@@ -71,10 +74,7 @@ impl Repl {
         Repl {
             input: None,
             msg: None,
-            history: vec![History {
-                text: String::from(t!("replapp.greeting", xous::LANG)),
-                is_input: false,
-            }],
+            history: Vec::<History>::new(),
             history_len: 10,
             content,
             gam,
@@ -86,6 +86,7 @@ impl Repl {
             bubble_space: 4,
             env: CmdEnv::new(xns),
             token: token.unwrap(),
+            flip: false,
         }
     }
 
@@ -112,9 +113,11 @@ impl Repl {
         // if we had an input string, do something
         if let Some(local) = &self.input {
             let input_history = History {
+                sender: None,
                 text: local.to_string(),
                 is_input: true,
             };
+
             self.circular_push(input_history);
         }
 
@@ -137,6 +140,7 @@ impl Repl {
                 .expect("command dispatch failed")
             {
                 let output_history = History {
+                    sender: None,
                     text: String::from(res.as_str().unwrap_or("UTF-8 Error")),
                     is_input: false,
                 };
@@ -147,6 +151,7 @@ impl Repl {
         } else if let Some(msg) = &self.msg {
             if let Some(res) = self.env.dispatch(None, Some(msg)).expect("callback failed") {
                 let output_history = History {
+                    sender: None,
                     text: String::from(res.as_str().unwrap_or("UTF-8 Error")),
                     is_input: false,
                 };
@@ -191,7 +196,7 @@ impl Repl {
 
         // iterator returns from oldest to newest
         // .rev() iterator is from newest to oldest
-        for h in self.history.iter().rev() {
+        for h in self.history.iter_mut().rev() {
             let mut bubble_tv = if h.is_input {
                 TextView::new(
                     self.content,
@@ -223,15 +228,75 @@ impl Repl {
             bubble_tv.insertion = None;
             write!(bubble_tv.text, "{}", h.text.as_str())
                 .expect("couldn't write history text to TextView");
+
             self.gam
                 .post_textview(&mut bubble_tv)
                 .expect("couldn't render bubble textview");
 
+            // update bubble_baseline right after calculations done for sender_tv
             if let Some(bounds) = bubble_tv.bounds_computed {
                 // we only subtract 1x of the margin because the bounds were computed from a "bottom right" that already counted
                 // the margin once.
+                let old = bubble_baseline;
                 bubble_baseline -=
                     (bounds.br.y - bounds.tl.y) + self.bubble_space + self.bubble_margin.y;
+
+                log::debug!("baselines message: old {}, new {}", old, bubble_baseline);
+                if bubble_baseline <= 0 {
+                    // don't draw history that overflows the top of the screen
+                    break;
+                }
+            }
+
+            let mut sender_tv = if h.is_input {
+                TextView::new(
+                    self.content,
+                    TextBounds::GrowableFromBr(
+                        Point::new(self.screensize.x - self.margin.x, bubble_baseline),
+                        self.bubble_width,
+                    ),
+                )
+            } else {
+                TextView::new(
+                    self.content,
+                    TextBounds::GrowableFromBl(
+                        Point::new(self.margin.x, bubble_baseline),
+                        self.bubble_width,
+                    ),
+                )
+            };
+
+            if h.is_input {
+                sender_tv.border_width = 1;
+                write!(sender_tv.text, "You said:").expect("cannot set sender text");
+            } else {
+                sender_tv.border_width = 2;
+                write!(sender_tv.text, "{}", h.sender.clone().unwrap())
+                    .expect("cannot set sender text");
+            }
+            sender_tv.draw_border = true;
+            sender_tv.clear_area = true;
+            sender_tv.rounded_border = Some(self.bubble_radius);
+            sender_tv.style = GlyphStyle::Bold;
+            sender_tv.margin = self.bubble_margin;
+            sender_tv.ellipsis = false;
+            sender_tv.insertion = None;
+
+            self.gam
+                .post_textview(&mut sender_tv)
+                .expect("couldn't render sender textview");
+
+            if let Some(bounds) = sender_tv.bounds_computed {
+                // we only subtract 1x of the margin because the bounds were computed from a "bottom right" that already counted
+                // the margin once.
+
+                let old = bubble_baseline;
+
+                bubble_baseline -=
+                    (bounds.br.y - bounds.tl.y) + self.bubble_space + self.bubble_margin.y;
+
+                log::info!("baselines sender: old {}, new {}", old, bubble_baseline);
+
                 if bubble_baseline <= 0 {
                     // don't draw history that overflows the top of the screen
                     break;

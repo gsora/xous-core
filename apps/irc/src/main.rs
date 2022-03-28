@@ -75,8 +75,13 @@ fn xmain() -> ! {
                 let new_message = buffer
                     .to_original::<NewMessage, _>()
                     .expect("cannot unmarshal new received message");
+
                 repl.circular_push(repl::History {
-                    text: new_message.formatted(),
+                    sender: match new_message.sender {
+                        Some(msg) => Some(msg.to_string()),
+                        None => None,
+                    },
+                    text: new_message.content.to_string(),
                     is_input: false,
                 });
 
@@ -113,6 +118,7 @@ fn xmain() -> ! {
                 }
 
                 repl.circular_push(repl::History {
+                    sender: None,
                     text: msg.to_string(),
                     is_input: true,
                 });
