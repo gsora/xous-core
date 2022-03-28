@@ -122,7 +122,9 @@ impl Listener for ChannelListener {
 
     /// When the welcome message is received, join the channel.
     fn welcome(&mut self, irc: Arc<Irc>) {
-        irc.join(&self.channel, None);
+        log::debug!("joining channel {}", self.channel);
+        irc.join(&self.channel, None)
+            .expect("cannot join irc channel");
         //self.irc = Some(irc);
         self.start_listening_new_messages(irc, self.channel.clone());
     }

@@ -26,10 +26,12 @@ com = {path = "../../services/com"}
 llio = {path = "../../services/llio"}
 codec = {path = "../../services/codec"}
 modals = {path = "../../services/modals"}
+pddb = {path = "../../services/pddb"}
 loirc = "0.2.0"
 encoding = "0.2.33"
 hiirc = "0.5.0"
-rkyv = {version = "0.4.3", features = ["const_generics"], default-features = false}
+rkyv = { version = "0.4.3", features = ["const_generics"], default-features = false }
+bincode = "2.0.0-rc.1"
 
 
 [features]

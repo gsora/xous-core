@@ -1,10 +1,13 @@
 #![cfg_attr(target_os = "none", no_std)]
 #![cfg_attr(target_os = "none", no_main)]
 
+mod user_data;
+use user_data::*;
 mod irc;
 use irc::*;
 mod repl;
 use modals::Modals;
+use pddb::Pddb;
 use repl::*;
 mod cmds;
 use cmds::*;
@@ -14,6 +17,8 @@ use num_traits::*;
 use rkyv::*;
 use std::{sync::Arc, thread};
 use xous_ipc::Buffer;
+
+const ADD_NEW_OPTION: &'static str = "Add new";
 
 #[derive(Debug, num_derive::FromPrimitive, num_derive::ToPrimitive)]
 pub(crate) enum ReplOp {
@@ -39,6 +44,9 @@ fn xmain() -> ! {
     log::set_max_level(log::LevelFilter::Trace);
     log::info!("my PID is {}", xous::process::id());
 
+    let pddb = pddb::Pddb::new();
+    load_pddb(&pddb);
+
     let xns = xous_names::XousNames::new().unwrap();
     // unlimited connections allowed, this is a user app and it's up to the app to decide its policy
     let sid = xns
@@ -47,6 +55,8 @@ fn xmain() -> ! {
     // log::trace!("registered with NS -- {:?}", sid);
 
     let m = modals::Modals::new(&xns).expect("cannot connect to modals server");
+    let mut pddb = pddb::Pddb::new();
+
     let mut connection_modal_shown = false;
 
     let mut new_message_cid: Option<xous::CID> = None;
@@ -124,7 +134,7 @@ fn xmain() -> ! {
                     gam::FocusState::Foreground => {
                         allow_redraw = true;
                         if !connection_modal_shown {
-                            new_message_cid = Some(show_connection_modal(&m, sid));
+                            new_message_cid = Some(show_connection_modal(&m, &mut pddb, sid));
                             connection_modal_shown = true
                         }
                     }
@@ -156,6 +166,14 @@ fn xmain() -> ! {
     xous::terminate_process(0)
 }
 
+fn load_pddb(pddb: &pddb::Pddb) {
+    // Since we have to read user profiles, block until we can successfully
+    // access PDDB.
+    log::debug!("waiting for pddb to be ready...");
+    pddb.is_mounted_blocking(None);
+    log::debug!("pddb ready, continuing!");
+}
+
 // #[cfg(any(target_os = "none", target_os = "xous"))]
 // fn show_connection_modal(modals: &Modals, callback_sid: xous::SID) -> xous::CID {
 //     modals
@@ -184,8 +202,8 @@ fn xmain() -> ! {
 //     xous::connect(new_message_sid).expect("cannot connect to irc new message send")
 // }
 
-// #[cfg(not(any(target_os = "none", target_os = "xous")))]
-fn show_connection_modal(modals: &Modals, callback_sid: xous::SID) -> xous::CID {
+#[cfg(not(any(target_os = "none", target_os = "xous")))]
+fn show_connection_modal(modals: &Modals, pddb: &mut Pddb, callback_sid: xous::SID) -> xous::CID {
     // use std::str::FromStr;
 
     // modals
@@ -204,11 +222,66 @@ fn show_connection_modal(modals: &Modals, callback_sid: xous::SID) -> xous::CID 
 
     // xous::connect(new_message_sid).expect("cannot connect to irc new message send")
 
-    // TODO: add connection list here
-    modals.add_list_item("Add new").unwrap();
-    let selected_option = modals
-        .get_radiobutton("Choose a network to connect to:")
-        .unwrap();
+    let mut chosen_network: Option<user_data::Network> = None;
 
-    xous::CID::from_i32(22).unwrap()
+    use std::collections::HashMap;
+
+    while chosen_network.is_none() {
+        let network_list = user_data::get_networks(pddb).unwrap();
+        let mut networks_map: HashMap<String, Network> = HashMap::new();
+
+        for network in network_list {
+            modals.add_list_item(&network.name).unwrap();
+            networks_map.insert(network.name.clone(), network.clone());
+        }
+
+        modals.add_list_item(ADD_NEW_OPTION).unwrap();
+        let selected_option = modals
+            .get_radiobutton("Choose a network to connect to:")
+            .unwrap();
+
+        if !selected_option.eq(ADD_NEW_OPTION) {
+            chosen_network = Some(networks_map.get(&selected_option).unwrap().clone());
+            continue;
+        }
+
+        user_data::store_network(new_network_modal(modals), pddb)
+            .expect("cannot create new network")
+    }
+
+    let chosen_network = chosen_network.unwrap();
+
+    let connection = IRCConnection {
+        callback_sid,
+        nickname: chosen_network.nickname,
+        server: chosen_network.server,
+        channel: chosen_network.channel,
+        callback_new_message: ReplOp::MessageReceived.to_u32().unwrap(),
+    };
+
+    let new_message_sid = connection.connect();
+
+    xous::connect(new_message_sid).expect("cannot connect to irc new message send")
+}
+
+fn new_network_modal(modals: &Modals) -> user_data::Network {
+    let name = modals
+        .get_text("Network name", None, None)
+        .expect("cannot show server text box");
+    let server = modals
+        .get_text("Server address", None, None)
+        .expect("cannot show server text box");
+    let nickname = modals
+        .get_text("Nickname", None, None)
+        .expect("cannot show nickname text box");
+    let channel = modals
+        .get_text("Channel", None, None)
+        .expect("cannot show channel text box");
+
+    Network {
+        name: name.0.to_string(),
+        channel: channel.0.to_string(),
+        server: server.0.to_string(),
+        nickname: nickname.0.to_string(),
+    }
 }
