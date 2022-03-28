@@ -76,14 +76,24 @@ fn xmain() -> ! {
                     .to_original::<NewMessage, _>()
                     .expect("cannot unmarshal new received message");
 
-                repl.circular_push(repl::History {
-                    sender: match new_message.sender {
-                        Some(msg) => Some(msg.to_string()),
-                        None => None,
-                    },
-                    text: new_message.content.to_string(),
-                    is_input: false,
-                });
+                match new_message.kind {
+                    MessageKind::MOTD => {
+                        repl.append_to_first_hist(
+                            new_message.content.to_string(),
+                            "MOTD".to_string(),
+                        );
+                    }
+                    MessageKind::Message => {
+                        repl.circular_push(repl::History {
+                            sender: match new_message.sender {
+                                Some(msg) => Some(msg.to_string()),
+                                None => None,
+                            },
+                            text: new_message.content.to_string(),
+                            is_input: false,
+                        });
+                    }
+                }
 
                 update_repl = true; // set a flag, instead of calling here, so message can drop and calling server is released
                 was_callback = false;
@@ -100,10 +110,10 @@ fn xmain() -> ! {
                 log::trace!("repl got input line: {}", s.as_str());
 
                 let msg = s.as_str();
-                //connection.send_message(&msg);
 
                 {
                     let msg = NewMessage {
+                        kind: MessageKind::Message,
                         sender: None,
                         content: xous_ipc::String::from_str(msg),
                     };

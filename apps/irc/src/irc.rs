@@ -17,9 +17,16 @@ pub(crate) enum IRCOp {
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub(crate) enum MessageKind {
+    Message,
+    MOTD,
+}
+
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub(crate) struct NewMessage {
     pub content: xous_ipc::String<MAX_MESSAGE_CHARS>,
     pub sender: Option<xous_ipc::String<MAX_NICKNAME_CHARS>>,
+    pub kind: MessageKind,
 }
 
 struct ChannelListener {
@@ -96,6 +103,8 @@ impl ChannelListener {
 impl Listener for ChannelListener {
     /// On any event we receive, print the Debug of it.
     fn any(&mut self, _: Arc<Irc>, event: &Event) {
+        log::trace!("low-level irc message: {:?}", event);
+
         if let Event::Message(msg) = event {
             if let Code::RplMotd = msg.code {
                 let msg = msg.args.get(1).unwrap();
@@ -104,8 +113,9 @@ impl Listener for ChannelListener {
                 }
 
                 let msg = NewMessage {
+                    kind: MessageKind::MOTD,
                     sender: Some(xous_ipc::String::from_str("MOTD")),
-                    content: xous_ipc::String::from_str(format!("{:?}", msg)),
+                    content: xous_ipc::String::from_str(format!("{}", msg)),
                 };
 
                 let msgbuf = Buffer::into_buf(msg).expect("cannot mutate into buffer");
@@ -139,6 +149,7 @@ impl Listener for ChannelListener {
         );
 
         let msg = NewMessage {
+            kind: MessageKind::Message,
             sender: Some(xous_ipc::String::from_str(&*sender.nickname())),
             content: xous_ipc::String::from_str(message),
         };

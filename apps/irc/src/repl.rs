@@ -3,10 +3,9 @@ use core::fmt::Write;
 use gam::UxRegistration;
 use graphics_server::api::GlyphStyle;
 use graphics_server::{DrawStyle, Gid, PixelColor, Point, Rectangle, TextBounds, TextView};
-use locales::t;
 use xous::MessageEnvelope;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct History {
     pub sender: Option<String>,
     // the history record
@@ -108,6 +107,21 @@ impl Repl {
         self.history.push(item);
     }
 
+    pub fn append_to_first_hist(&mut self, content: String, sender: String) {
+        if self.history.len() == 0 {
+            self.history.push(History {
+                text: content.clone(),
+                sender: Some(sender.clone()),
+                is_input: false,
+            });
+
+            return;
+        }
+        self.history[0].text.push_str(content.as_str());
+        self.history[0].text.push('\n');
+        self.history[0].sender = Some(sender);
+    }
+
     /// update the loop, in response to various inputs
     pub(crate) fn update(&mut self, was_callback: bool) -> Result<(), xous::Error> {
         // if we had an input string, do something
@@ -188,6 +202,7 @@ impl Repl {
             )
             .expect("can't clear content area");
     }
+
     pub(crate) fn redraw(&mut self) -> Result<(), xous::Error> {
         self.clear_area();
 
