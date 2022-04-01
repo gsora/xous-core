@@ -65,6 +65,7 @@ fn xmain() -> ! {
     let mut update_repl = true;
     let mut was_callback = false;
     let mut allow_redraw = false;
+    let mut was_connected = false;
     loop {
         let msg = xous::receive_message(sid).unwrap();
         log::debug!("got message {:?}", msg);
@@ -146,6 +147,10 @@ fn xmain() -> ! {
                 match new_state {
                     gam::FocusState::Background => {
                         allow_redraw = false;
+
+                        if !was_connected {
+                            continue;
+                        }
                         log::debug!("disconnecting from irc");
                         xous::send_message(
                             new_message_cid.unwrap(), 
@@ -159,7 +164,8 @@ fn xmain() -> ! {
                         allow_redraw = true;
                         if !connection_modal_shown {
                             new_message_cid = Some(show_connection_modal(&m, &mut pddb, sid));
-                            connection_modal_shown = true
+                            connection_modal_shown = true;
+                            was_connected = true;
                         }
                     }
                 }
