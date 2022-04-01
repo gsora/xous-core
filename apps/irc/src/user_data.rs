@@ -76,10 +76,6 @@ pub fn store_network(network: Network, pddb: &mut Pddb) -> Result<(), Box<dyn st
     }
 }
 
-pub fn get_network(name: String, pddb: &mut Pddb) -> Result<Network, Box<dyn std::error::Error>> {
-    get_network_lowlevel(network_pddb_key(name.clone()), pddb)
-}
-
 fn get_network_lowlevel(
     key: String,
     pddb: &mut Pddb,

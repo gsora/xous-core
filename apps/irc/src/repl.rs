@@ -89,13 +89,6 @@ impl Repl {
         }
     }
 
-    /// accept a new input string
-    pub(crate) fn input(&mut self, line: &str) -> Result<(), xous::Error> {
-        self.input = Some(String::from(line));
-
-        Ok(())
-    }
-
     pub(crate) fn msg(&mut self, message: MessageEnvelope) {
         self.msg = Some(message);
     }

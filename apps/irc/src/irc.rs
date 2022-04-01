@@ -1,11 +1,9 @@
-use encoding::all::UTF_8;
 use hiirc::*;
 use num_traits::*;
 use rkyv::*;
 use std::{sync::Arc, thread};
 use xous_ipc::Buffer;
 
-pub(crate) const DEFAULT_CHANNEL: &str = "#precursor_irc_testing";
 const MAX_MESSAGE_CHARS: usize = 512;
 const MAX_NICKNAME_CHARS: usize = 8;
 
@@ -131,8 +129,8 @@ impl Listener for ChannelListener {
 
     fn channel_msg(
         &mut self,
-        irc: Arc<Irc>,
-        channel: Arc<Channel>,
+        _: Arc<Irc>,
+        _: Arc<Channel>,
         sender: Arc<ChannelUser>,
         message: &str,
     ) {

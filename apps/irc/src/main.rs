@@ -11,11 +11,7 @@ use pddb::Pddb;
 use repl::*;
 mod cmds;
 use cmds::*;
-use encoding::all::UTF_8;
-use hiirc::*;
 use num_traits::*;
-use rkyv::*;
-use std::{sync::Arc, thread};
 use xous_ipc::Buffer;
 
 const ADD_NEW_OPTION: &'static str = "Add new";
