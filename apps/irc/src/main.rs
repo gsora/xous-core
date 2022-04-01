@@ -196,7 +196,7 @@ fn show_connection_modal(modals: &Modals, pddb: &mut Pddb, callback_sid: xous::S
     use std::collections::HashMap;
 
     while chosen_network.is_none() {
-        let network_list = user_data::get_networks(pddb).unwrap();
+        let network_list = user_data::get_networks(pddb).expect("cannot get networks");
         let mut networks_map: HashMap<String, Network> = HashMap::new();
 
         for network in network_list {
