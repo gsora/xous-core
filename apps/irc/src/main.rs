@@ -190,54 +190,7 @@ fn load_pddb(pddb: &pddb::Pddb) {
     log::debug!("pddb ready, continuing!");
 }
 
-// #[cfg(any(target_os = "none", target_os = "xous"))]
-// fn show_connection_modal(modals: &Modals, callback_sid: xous::SID) -> xous::CID {
-//     modals
-//         .show_notification("Please provide IRC connection preferences :-)")
-//         .unwrap();
-//     let server = modals
-//         .get_text("Server address", None, None)
-//         .expect("cannot show server text box");
-//     let nickname = modals
-//         .get_text("Nickname", None, None)
-//         .expect("cannot show nickname text box");
-//     let channel = modals
-//         .get_text("Channel", None, None)
-//         .expect("cannot show channel text box");
-
-//     let connection = IRCConnection {
-//         callback_sid,
-//         nickname: nickname.as_str().to_string(),
-//         server: server.as_str().to_string(),
-//         channel: channel.as_str().to_string(),
-//         callback_new_message: ReplOp::MessageReceived.to_u32().unwrap(),
-//     };
-
-//     let new_message_sid = connection.connect();
-
-//     xous::connect(new_message_sid).expect("cannot connect to irc new message send")
-// }
-
-#[cfg(not(any(target_os = "none", target_os = "xous")))]
 fn show_connection_modal(modals: &Modals, pddb: &mut Pddb, callback_sid: xous::SID) -> xous::CID {
-    // use std::str::FromStr;
-
-    // modals
-    //     .show_notification("Please provide IRC connection preferences :-)")
-    //     .unwrap();
-
-    // let connection = IRCConnection {
-    //     callback_sid,
-    //     nickname: String::from_str("gsora_precursor").unwrap(),
-    //     server: String::from_str("irc.libera.chat:6667").unwrap(),
-    //     channel: String::from_str("#precursor_irc_testing").unwrap(),
-    //     callback_new_message: ReplOp::MessageReceived.to_u32().unwrap(),
-    // };
-
-    // let new_message_sid = connection.connect();
-
-    // xous::connect(new_message_sid).expect("cannot connect to irc new message send")
-
     let mut chosen_network: Option<user_data::Network> = None;
 
     use std::collections::HashMap;
