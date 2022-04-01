@@ -83,6 +83,7 @@ debugprint = []
 spinortest = [] # for spinor testing. contra-indicated with PDDB, as it steals memory from the PDDB.
 benchmarks = [] # adds the benchmark routines. Left off normally to free up code and memory space.
 tts = [] # adds text to speech plugin
+pddbtest = []
 default = [] # "debugprint"
 
 [target.'cfg(any(windows,unix))'.dependencies]

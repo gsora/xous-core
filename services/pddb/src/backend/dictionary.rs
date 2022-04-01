@@ -419,7 +419,6 @@ impl DictCacheEntry {
                 if let KeyCacheData::Small(cache_data) = kcache.data.as_mut().expect("small pool should all have their data 'hot' if the index entry is also in cache") {
                     cache_data.clean = false;
                     // grow the data cache to accommodate the necessary length; this should be efficient because we reserved space when the vector was allocated
-                    assert!(cache_data.data.len() != 0, "(temporary assert - expected data in the cache for a particular test. Remove this assert if you're hitting this on an actual zero-lenth data set.");
                     while cache_data.data.len() < data.len() + offset {
                         cache_data.data.push(0);
                     }
@@ -537,6 +536,7 @@ impl DictCacheEntry {
                             for vpage in (vpage_end_offset.as_u64()..kcache.start + kcache.reserved).step_by(VPAGE_SIZE) {
                                 if let Some(pp) = v2p_map.get_mut(&VirtAddr::new(vpage).unwrap()) {
                                     assert!(pp.valid(), "v2p returned an invalid page");
+                                    log::trace!("fast_space_free key_update {} before", pp.journal());
                                     hw.fast_space_free(pp);
                                     assert!(pp.valid() == false, "pp is still marked as valid!");
                                 }
@@ -559,11 +559,14 @@ impl DictCacheEntry {
                     self.rebuild_free_pool();
                 }
                 let pool_candidate = self.small_pool_free.pop().expect("Free pool was allocated & rebuilt, but still empty.");
-                let reservation = if alloc_hint.unwrap_or(0) > data.len() + offset {
+                let mut reservation = if alloc_hint.unwrap_or(0) > data.len() + offset {
                     alloc_hint.unwrap_or(0)
                 } else {
                     data.len() + offset
                 };
+                if reservation == 0 { // this case happens if someone tries to just create an empty key entry without giving an alloc hint
+                    reservation = 1; // at least make a reservation for 1 byte of data
+                }
                 let index = if pool_candidate.avail as usize >= reservation {
                     // it fits in the current candidate slot, use this as the index
                     let ksp = &mut self.small_pool[pool_candidate.index];
@@ -596,15 +599,15 @@ impl DictCacheEntry {
                 for &b in data {
                     alloc_data.push(b);
                 }
-                /*
-                for fk in self.free_keys.iter() {
-                    log::info!("fk start: {} run: {}", fk.0.start, fk.0.run);
-                }*/
                 let descriptor_index = if let Some(di) = self.get_free_key_index() {
                     di
                 } else {
                     return Err(Error::new(ErrorKind::OutOfMemory, "Ran out of key indices in dictionary"));
                 };
+                /* log::info!("storing in index {:?}", descriptor_index);
+                for fk in self.free_keys.iter() {
+                    log::info!("fk start: {} run: {}", fk.0.start, fk.0.run);
+                } */
                 let kcache = KeyCacheEntry {
                     start: small_storage_base_vaddr_from_indices(self.index, index),
                     len: (data.len() + offset) as u64,
@@ -724,6 +727,7 @@ impl DictCacheEntry {
                                 hw.trng_slice(&mut noise);
                                 hw.patch_data(&noise, pp.page_number() * PAGE_SIZE as u32);
                             }
+                            log::trace!("fast_space_free key_remove {} before", pp.journal());
                             hw.fast_space_free(pp);
                             assert!(pp.valid() == false, "pp is still marked as valid!");
                         }
@@ -869,7 +873,7 @@ impl DictCacheEntry {
                     })
                 )
             }
-            if index > self.last_disk_key_index {
+            if index >= self.last_disk_key_index {
                 // if the new index is outside the currently known set, raise the search extent for the brute-force search
                 self.last_disk_key_index = index + 1;
             }
@@ -914,6 +918,8 @@ impl DictCacheEntry {
                     }
                     FreeKeyCases::Within => {
                         log::error!("Double-free error in free_keys()");
+                        log::info!("free_key_vec[i].0: {:?}", free_key_vec[i].0);
+                        log::info!("index: {}", index);
                         panic!("Double-free error in free_keys()");
                     }
                     FreeKeyCases::RightAdjacent => {
@@ -1035,7 +1041,8 @@ pub(crate) struct Dictionary {
     /// Number of keys in the dictionary
     pub(crate) num_keys: u32,
     /// Free index starting space. While this is a derived parameter, its value is recorded to avoid
-    /// an expensive, long search operation during the creation of a dictionary cache record.
+    /// an expensive, long search operation during the creation of a dictionary cache record. 0 is an invalid index,
+    /// as this is where the header goes. Maybe this should be a NonZeroU32.
     pub(crate) free_key_index: u32,
     /// Name. Length should pad out the record to exactly 127 bytes.
     pub(crate) name: DictName,
@@ -1114,7 +1121,7 @@ pub(crate) enum FreeKeyCases {
 }
 #[derive(Eq, Copy, Clone, Debug)]
 pub(crate) struct FreeKeyRange {
-    /// This index should be free
+    /// This index should be free. Smallest value is 1; 0-index is for the dict header. Maybe this should be a NonZeroU32?
     pub(crate) start: u32,
     /// Additional free keys after the start one. Run = 0 means just the start key is free, and the
     /// next one should be used. Run = 2 means {start, start+1} are free, etc.

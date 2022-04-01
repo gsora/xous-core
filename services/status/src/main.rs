@@ -10,15 +10,15 @@ use kbdmenu::*;
 mod app_autogen;
 mod time;
 
+use chrono::prelude::*;
 use com::api::*;
 use core::fmt::Write;
+use gam::{GamObjectList, GamObjectType};
+use graphics_server::api::GlyphStyle;
+use graphics_server::*;
+use locales::t;
 use num_traits::*;
 use xous::{msg_scalar_unpack, send_message, Message, CID};
-use graphics_server::*;
-use graphics_server::api::GlyphStyle;
-use locales::t;
-use gam::{GamObjectList, GamObjectType};
-use chrono::prelude::*;
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -166,22 +166,26 @@ fn xmain() -> ! {
     // layout: 336 px wide
     // 0                   150 150 200
     // Feb 05 15:00 (00:06:23) xxxx     3.72V/-100mA/99%
-    const CPU_BAR_WIDTH: i16 = 50;
+    const CPU_BAR_WIDTH: i16 = 48;
+    const CPU_BAR_OFFSET: i16 = 4;
     let time_rect = Rectangle::new_with_style(
         Point::new(0, 0),
         Point::new(
-            screensize.x / 2 - CPU_BAR_WIDTH / 2 - 1,
+            screensize.x / 2 - CPU_BAR_WIDTH / 2 - 1 + CPU_BAR_OFFSET,
             screensize.y / 2 - 1,
         ),
         DrawStyle::new(PixelColor::Light, PixelColor::Light, 0),
     );
     let cpuload_rect = Rectangle::new_with_style(
-        Point::new(screensize.x / 2 - CPU_BAR_WIDTH / 2, 0),
-        Point::new(screensize.x / 2 + CPU_BAR_WIDTH / 2, screensize.y / 2 + 1),
+        Point::new(screensize.x / 2 - CPU_BAR_WIDTH / 2 + CPU_BAR_OFFSET, 0),
+        Point::new(
+            screensize.x / 2 + CPU_BAR_WIDTH / 2 + CPU_BAR_OFFSET,
+            screensize.y / 2 + 1,
+        ),
         DrawStyle::new(PixelColor::Light, PixelColor::Dark, 1),
     );
     let stats_rect = Rectangle::new_with_style(
-        Point::new(screensize.x / 2 + CPU_BAR_WIDTH / 2 + 1, 0),
+        Point::new(screensize.x / 2 + CPU_BAR_WIDTH / 2 + 1 + CPU_BAR_OFFSET, 0),
         Point::new(screensize.x, screensize.y / 2 - 1),
         DrawStyle::new(PixelColor::Light, PixelColor::Light, 0),
     );
@@ -350,7 +354,12 @@ fn xmain() -> ! {
     let modals = modals::Modals::new(&xns).unwrap();
 
     log::debug!("starting main menu thread");
-    create_main_menu(keys.clone(), xous::connect(status_sid).unwrap(), &com, time_cid);
+    create_main_menu(
+        keys.clone(),
+        xous::connect(status_sid).unwrap(),
+        &com,
+        time_cid,
+    );
     create_app_menu(xous::connect(status_sid).unwrap());
     let kbd_mgr = xous::create_server().unwrap();
     let kbd_menumatic = create_kbd_menu(xous::connect(status_sid).unwrap(), kbd_mgr);
@@ -362,7 +371,7 @@ fn xmain() -> ! {
         .unwrap();
     let mut wifi_status: WlanStatus = WlanStatus::from_ipc(WlanStatusIpc::default());
 
-    #[cfg(feature="tts")]
+    #[cfg(feature = "tts")]
     thread::spawn({
         move || {
             // indicator of boot-up for blind users
@@ -374,6 +383,10 @@ fn xmain() -> ! {
         }
     });
     log::info!("|status: starting main loop"); // don't change this -- factory test looks for this exact string
+
+    #[cfg(any(target_os = "none", target_os = "xous"))]
+    llio.clear_wakeup_alarm().unwrap(); // this is here to clear any wake-up alarms that were set by a prior coldboot command
+
     pump_run.store(true, Ordering::Relaxed); // start status thread updating
     loop {
         let msg = xous::receive_message(status_sid).unwrap();
@@ -553,7 +566,8 @@ fn xmain() -> ! {
                         }
                     }
                 }
-                { // update the time field
+                {
+                    // update the time field
                     // have to clear the entire rectangle area, because the text has a variable width and dirty text will remain if the text is shortened
                     gam.draw_rectangle(status_gid, time_rect).ok();
                     uptime_tv.clear_str();
@@ -561,29 +575,17 @@ fn xmain() -> ! {
                         // we "say" UTC but actually local time is in whatever the local time is
                         let dt = chrono::DateTime::<Utc>::from_utc(
                             NaiveDateTime::from_timestamp(timestamp as i64 / 1000, 0),
-                            chrono::offset::Utc
+                            chrono::offset::Utc,
                         );
                         let timestr = dt.format("%H:%M %m/%d").to_string();
                         // TODO: convert dt to an actual local time using the chrono library
-                        write!(
-                            &mut uptime_tv,
-                            "{}",
-                            timestr
-                        )
-                        .unwrap();
+                        write!(&mut uptime_tv, "{}", timestr).unwrap();
                     } else {
                         if pddb_poller.is_mounted_nonblocking() {
-                            write!(
-                                &mut uptime_tv,
-                                "{}",
-                                t!("stats.set_time", xous::LANG)
-                            ).unwrap();
+                            write!(&mut uptime_tv, "{}", t!("stats.set_time", xous::LANG)).unwrap();
                         } else {
-                            write!(
-                                &mut uptime_tv,
-                                "{}",
-                                t!("stats.mount_pddb", xous::LANG)
-                            ).unwrap();
+                            write!(&mut uptime_tv, "{}", t!("stats.mount_pddb", xous::LANG))
+                                .unwrap();
                         }
                     }
                     // use ticktimer, not stats_phase, because stats_phase encodes some phase drift due to task-switching overhead
@@ -687,10 +689,12 @@ fn xmain() -> ! {
                         .initiate_suspend()
                         .expect("couldn't initiate suspend op");
                 }
-            },
+            }
             Some(StatusOpcode::BatteryDisconnect) => {
                 if ((llio.adc_vbus().unwrap() as f64) * 0.005033) > 1.5 {
-                    modals.show_notification(t!("mainmenu.cant_sleep", xous::LANG)).expect("couldn't notify that power is plugged in");
+                    modals
+                        .show_notification(t!("mainmenu.cant_sleep", xous::LANG))
+                        .expect("couldn't notify that power is plugged in");
                 } else {
                     gam.shipmode_blank_request().ok();
                     ticktimer.sleep_ms(500).unwrap();
@@ -699,7 +703,7 @@ fn xmain() -> ! {
                     com.ship_mode().unwrap();
                     com.power_off_soc().unwrap();
                 }
-            },
+            }
             Some(StatusOpcode::Quit) => {
                 break;
             }
@@ -722,4 +726,3 @@ fn xmain() -> ! {
     log::trace!("status thread quitting");
     xous::terminate_process(0)
 }
-
