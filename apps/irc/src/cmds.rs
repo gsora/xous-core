@@ -29,6 +29,7 @@ pub trait ShellCmdApi<'a> {
     fn verb(&self) -> &'static str;
 }
 // the argument to this macro is the command verb
+#[allow(unused_macros)]
 macro_rules! cmd_api {
     ($verb:expr) => {
         fn verb(&self) -> &'static str {
@@ -59,6 +60,7 @@ pub struct CommonEnv {
     xns: xous_names::XousNames,
 }
 impl CommonEnv {
+    #[allow(dead_code)]
     pub fn register_handler(&mut self, verb: String<256>) -> u32 {
         let mut key: u32;
         loop {
@@ -86,14 +88,11 @@ impl CommonEnv {
 */
 
 ///// 1. add your module here, and pull its namespace into the local crate
-mod audio;
-use audio::*;
 
 pub struct CmdEnv {
     common_env: CommonEnv,
     lastverb: String<256>,
     ///// 2. declare storage for your command here.
-    audio_cmd: Audio,
 }
 impl CmdEnv {
     pub fn new(xns: &xous_names::XousNames) -> CmdEnv {
@@ -114,7 +113,6 @@ impl CmdEnv {
             common_env: common,
             lastverb: String::<256>::new(),
             ///// 3. initialize your storage, by calling new()
-            audio_cmd: Audio::new(&xns),
         }
     }
 
@@ -127,7 +125,6 @@ impl CmdEnv {
 
         let commands: &mut [&mut dyn ShellCmdApi] = &mut [
             ///// 4. add your command to this array, so that it can be looked up and dispatched
-            &mut self.audio_cmd,
         ];
 
         if let Some(cmdline) = maybe_cmdline {

@@ -32,7 +32,7 @@ pub(crate) enum ReplOp {
 }
 
 // This name should be (1) unique (2) under 64 characters long and (3) ideally descriptive.
-pub(crate) const SERVER_NAME_REPL: &str = "_IRC demo application_";
+pub(crate) const SERVER_NAME_IRC: &str = "_IRC demo application_";
 
 #[xous::xous_main]
 fn xmain() -> ! {
@@ -46,7 +46,7 @@ fn xmain() -> ! {
     let xns = xous_names::XousNames::new().unwrap();
     // unlimited connections allowed, this is a user app and it's up to the app to decide its policy
     let sid = xns
-        .register_name(SERVER_NAME_REPL, None)
+        .register_name(SERVER_NAME_IRC, None)
         .expect("can't register server");
     // log::trace!("registered with NS -- {:?}", sid);
 
@@ -138,7 +138,7 @@ fn xmain() -> ! {
             }
             Some(ReplOp::Redraw) => {
                 if allow_redraw {
-                    repl.redraw().expect("REPL couldn't redraw");
+                    repl.redraw().expect("IRC couldn't redraw");
                 }
             }
             Some(ReplOp::ChangeFocus) => xous::msg_scalar_unpack!(msg, new_state_code, _, _, _, {
@@ -188,7 +188,7 @@ fn xmain() -> ! {
         }
         if update_repl {
             repl.update(was_callback)
-                .expect("REPL had problems updating");
+                .expect("IRC had problems updating");
             update_repl = false;
         }
         log::trace!("reached bottom of main loop");

@@ -1,7 +1,7 @@
 [package]
 name = "irc"
 version = "0.1.0"
-authors = ["bunnie <bunnie@kosagi.com>"]
+authors = ["Gianguido (gsora) Sorà <gsora@disroot.org>"]
 edition = "2021"
 description = "IRC client"
 
@@ -18,7 +18,6 @@ xous-names = { path = "../../services/xous-names" }
 gam = {path = "../../services/gam" }
 graphics-server = {path = "../../services/graphics-server" }
 trng = {path = "../../services/trng"}
-locales = {path = "../../locales"}
 ime-plugin-api = {path = "../../services/ime-plugin-api"}
 ime-plugin-shell = {path = "../../services/ime-plugin-shell"}
 content-plugin-api = {path = "../../services/content-plugin-api"} # all content canvas providers must provide this API
