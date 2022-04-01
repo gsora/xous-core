@@ -33,11 +33,11 @@
         }
     },
     "irc": {
-        "context_name": "irc demo app",
+        "context_name": "IRC client",
         "menu_name": {
             "appmenu.irc": {
-                "en": "Basic IRC demo",
-                "en-audio": "Basic IRC demo"
+                "en": "IRC client",
+                "en-audio": "IRC client"
             }
         }
     }
