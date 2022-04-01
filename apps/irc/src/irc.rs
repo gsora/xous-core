@@ -14,6 +14,7 @@ const MAX_NICKNAME_CHARS: usize = 8;
 pub(crate) enum IRCOp {
     /// When a message is sent by the user, send this message.
     MessageSent,
+    Disconnect,
 }
 
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
@@ -59,7 +60,7 @@ impl ChannelListener {
 }
 
 impl ChannelListener {
-    fn message_loop(sid: xous::SID, irc_instance: Arc<Irc>, channel: &str) -> ! {
+    fn message_loop(sid: xous::SID, irc_instance: Arc<Irc>, channel: &str) {
         loop {
             let msg = xous::receive_message(sid).unwrap();
             log::debug!("got message {:?}", msg);
@@ -72,9 +73,13 @@ impl ChannelListener {
                         .to_original::<NewMessage, _>()
                         .expect("cannot unmarshal new received message");
 
-                    irc_instance.privmsg(channel, new_message.content.to_str());
+                    irc_instance.privmsg(channel, new_message.content.to_str()).expect("cannot send message to irc channel");
                 }
-                _ => {}
+                Some(IRCOp::Disconnect) => {
+                    irc_instance.close().expect("cannot close irc connection");
+                    return;
+                },
+                None => (),
             }
         }
     }
@@ -88,17 +93,6 @@ impl ChannelListener {
         });
     }
 }
-
-// impl ChannelListener {
-//     fn send_message(&self, msg: &String) {
-//         if self.irc.is_none() {
-//             return;
-//         }
-
-//         let i = self.irc.as_ref().unwrap();
-//         i.privmsg(&self.channel, msg);
-//     }
-// }
 
 impl Listener for ChannelListener {
     /// On any event we receive, print the Debug of it.

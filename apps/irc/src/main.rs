@@ -146,7 +146,15 @@ fn xmain() -> ! {
                 match new_state {
                     gam::FocusState::Background => {
                         allow_redraw = false;
-                    }
+                        log::debug!("disconnecting from irc");
+                        xous::send_message(
+                            new_message_cid.unwrap(), 
+                            xous::Message::new_scalar(
+                                IRCOp::Disconnect.to_usize().unwrap(), 
+                                0, 0, 0, 0
+                            )
+                        ).expect("cannot send disconnect message");
+                    },
                     gam::FocusState::Foreground => {
                         allow_redraw = true;
                         if !connection_modal_shown {
