@@ -144,13 +144,15 @@ fn xmain() -> ! {
             Some(ReplOp::ChangeFocus) => xous::msg_scalar_unpack!(msg, new_state_code, _, _, _, {
                 let new_state = gam::FocusState::convert_focus_change(new_state_code);
                 match new_state {
-                    // TODO: figure out a way to understand not only background/foreground
-                    // but also opened/closed.
                     gam::FocusState::Background => {
                         allow_redraw = false;
                         if !was_connected {
                             continue;
                         }
+                        
+                        repl.clean_history();
+                        connection_modal_shown = false;
+
                         log::debug!("disconnecting from irc");
                         xous::send_message(
                             new_message_cid.unwrap(),

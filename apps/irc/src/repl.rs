@@ -100,6 +100,10 @@ impl Repl {
         self.history.push(item);
     }
 
+    pub fn clean_history(&mut self) {
+        self.history.clear();
+    }
+
     pub fn append_to_first_hist(&mut self, content: String, sender: String) {
         if self.history.len() == 0 {
             self.history.push(History {
