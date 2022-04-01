@@ -35,7 +35,12 @@ pub fn get_networks(pddb: &mut Pddb) -> Result<Vec<Network>, Box<dyn std::error:
         Ok(list) => list,
     };
 
-    // remove prefix from keys, because we have to
+    // ignore "canary"
+    let keys_list = keys_list.into_iter()
+        .filter(|element| {
+            is_valid_network_key(element)    
+        })
+        .collect::<Vec<_>>();
 
     let mut ret = vec![];
     for key in keys_list {
@@ -96,4 +101,8 @@ fn network_pddb_key(name: std::string::String) -> std::string::String {
     let mut key = USER_NETWORKS_KEY.to_string();
     key.push_str(&name);
     key
+}
+
+fn is_valid_network_key(key: &std::string::String) -> bool {
+    key.starts_with(USER_NETWORKS_KEY)
 }
