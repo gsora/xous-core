@@ -71,6 +71,9 @@ fn xmain() -> ! {
         log::debug!("got message {:?}", msg);
         match FromPrimitive::from_usize(msg.body.id()) {
             Some(ReplOp::MessageReceived) => {
+                // as soon as we receive the first message, this means we are connected
+                was_connected = true;
+
                 let buffer =
                     unsafe { Buffer::from_memory_message(msg.body.memory_message().unwrap()) };
                 let new_message = buffer
@@ -145,27 +148,31 @@ fn xmain() -> ! {
             Some(ReplOp::ChangeFocus) => xous::msg_scalar_unpack!(msg, new_state_code, _, _, _, {
                 let new_state = gam::FocusState::convert_focus_change(new_state_code);
                 match new_state {
+                    // TODO: figure out a way to understand not only background/foreground
+                    // but also opened/closed.
                     gam::FocusState::Background => {
                         allow_redraw = false;
-
                         if !was_connected {
                             continue;
                         }
                         log::debug!("disconnecting from irc");
                         xous::send_message(
-                            new_message_cid.unwrap(), 
+                            new_message_cid.unwrap(),
                             xous::Message::new_scalar(
-                                IRCOp::Disconnect.to_usize().unwrap(), 
-                                0, 0, 0, 0
-                            )
-                        ).expect("cannot send disconnect message");
-                    },
+                                IRCOp::Disconnect.to_usize().unwrap(),
+                                0,
+                                0,
+                                0,
+                                0,
+                            ),
+                        )
+                        .expect("cannot send disconnect message");
+                    }
                     gam::FocusState::Foreground => {
                         allow_redraw = true;
                         if !connection_modal_shown {
                             new_message_cid = Some(show_connection_modal(&m, &mut pddb, sid));
                             connection_modal_shown = true;
-                            was_connected = true;
                         }
                     }
                 }
