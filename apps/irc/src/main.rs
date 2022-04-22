@@ -149,7 +149,7 @@ fn xmain() -> ! {
                         if !was_connected {
                             continue;
                         }
-                        
+
                         repl.clean_history();
                         connection_modal_shown = false;
 
@@ -205,7 +205,7 @@ fn load_pddb(pddb: &pddb::Pddb) {
     // Since we have to read user profiles, block until we can successfully
     // access PDDB.
     log::debug!("waiting for pddb to be ready...");
-    pddb.is_mounted_blocking(None);
+    pddb.is_mounted_blocking();
     log::debug!("pddb ready, continuing!");
 }
 

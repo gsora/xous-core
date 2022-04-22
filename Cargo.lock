@@ -197,6 +197,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "bincode"
+version = "2.0.0-rc.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f609ceb2c41b0d0277314a789ef0e7eb14593d5485f7c67320bed3924ebb1b33"
+dependencies = [
+ "bincode_derive",
+]
+
+[[package]]
+name = "bincode_derive"
+version = "2.0.0-rc.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "913287a8f3e00db4c7ae1b87e9b9b8cebd6b89217eaadfc281fa5c897da35dc3"
+dependencies = [
+ "virtue",
+]
+
+[[package]]
 name = "bit_field"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1324,6 +1342,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5af1f635ef1bc545d78392b136bfe1c9809e029023c84a3638a864a10b8819c8"
 
 [[package]]
+name = "hiirc"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "36c8a7835ad5349165c401e09cd2e72c98d4b73607805ba399e94f7b0e978a90"
+dependencies = [
+ "encoding",
+ "loirc",
+]
+
+[[package]]
 name = "hkdf"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1474,7 +1502,6 @@ dependencies = [
  "ime-plugin-api",
  "ime-plugin-shell",
  "llio",
- "locales",
  "log",
  "log-server",
  "loirc",
