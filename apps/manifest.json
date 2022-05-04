@@ -21,6 +21,14 @@
             }
         }
     },
+    "wallet": {
+        "context_name": "Cryptocurrency wallet",
+        "menu_name": {
+            "appmenu.wallet": {
+                "en": "Cryptocurrency wallet"
+            }
+        }
+    },
     "repl": {
         "context_name": "repl demo app",
         "menu_name": {

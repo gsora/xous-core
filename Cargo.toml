@@ -38,6 +38,7 @@ default-members = [
   "apps/ball",
   "apps/hello",
   "apps/repl",
+  "apps/wallet",
 ]
 members = [
   "xous-ipc",
@@ -91,6 +92,7 @@ members = [
   "apps/ball",
   "apps/hello",
   "apps/repl",
+  "apps/wallet",
   "services/libstd-test",
   "services/ffi-test",
   "services/tts",

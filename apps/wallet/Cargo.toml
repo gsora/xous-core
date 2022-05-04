@@ -1,0 +1,48 @@
+[package]
+name = "wallet"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+log = "0.4.14"
+num-derive = {version = "0.3.3", default-features = false}
+num-traits = {version = "0.2.14", default-features = false}
+xous = { path = "../../xous-rs" }
+xous-ipc = { path = "../../xous-ipc" }
+log-server = { path = "../../services/log-server" }
+xous-names = { path = "../../services/xous-names" }
+gam = {path = "../../services/gam" }
+trng = {path = "../../services/trng" }
+modals = {path = "../../services/modals" }
+graphics-server = {path = "../../services/graphics-server" }
+locales = {path = "../../locales"}
+tts-frontend = {path="../../services/tts"}
+cosmrs = {path="/Users/gsora/Documents/Code/cosmos-rust/cosmrs"}
+
+#sha2 = {version = "0.9.5", default-features = false, features = []}
+sha2 = {path = "../../services/engine-sha512"}
+engine-25519 = {path="../../services/engine-25519"}
+rand_core = "0.5.1"
+hex = {version = "0.4.3", default-features = false, features = []}
+getrandom = {version = "0.2.6", features = ["custom"]}
+base64 = "0.13.0"
+simple-server = { path = "/Users/gsora/Documents/Code/simple-server"}
+
+[dependencies.curve25519-dalek]
+version = "3.1.0" # note this is patched to our fork in ./Cargo.toml
+default-features = false
+features = ["u32_backend", "betrusted"]
+
+[dependencies.ed25519-dalek]
+version = "1.0.1"
+default-features = false
+features = ["u32_backend", "rand"]
+
+[dependencies.x25519-dalek]
+version = "1.1.1"
+default-features = false
+features = ["u32_backend"]
+
+[features]
+tts = []
+default = []
