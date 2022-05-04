@@ -26,7 +26,7 @@ rand_core = "0.5.1"
 hex = {version = "0.4.3", default-features = false, features = []}
 getrandom = {version = "0.2.6", features = ["custom"]}
 base64 = "0.13.0"
-simple-server = { path = "/Users/gsora/Documents/Code/simple-server"}
+simple-server = { path = "simple-server"}
 
 [dependencies.curve25519-dalek]
 version = "3.1.0" # note this is patched to our fork in ./Cargo.toml

@@ -4,7 +4,7 @@ use simple_server::{Method, Server, StatusCode};
 
 pub fn run() {
     let host = "0.0.0.0";
-    let port = "7878";
+    let port = "80";
 
     let server = Server::new(|request, mut response| {
         log::info!("Request received. {} {}", request.method(), request.uri());

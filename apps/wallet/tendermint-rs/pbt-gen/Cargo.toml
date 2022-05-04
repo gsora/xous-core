@@ -1,0 +1,26 @@
+[package]
+name = "tendermint-pbt-gen"
+version = "0.23.6"
+authors = ["Informal Systems <hello@informal.systems>"]
+edition = "2018"
+license     = "Apache-2.0"
+readme      = "README.md"
+categories  = ["development-tools"]
+keywords    = ["tendermint", "property-based testing"]
+repository  = "https://github.com/informalsystems/tendermint-rs"
+description = """
+            An internal crate providing proptest generators used across our
+            crates and not depending on any code internal to those crates.
+            """
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["time"]
+
+[dependencies]
+time = { version = "0.3", default-features = false, optional = true }
+proptest = { version = "0.10.1", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+time = { version = "0.3", features = ["macros"] }
