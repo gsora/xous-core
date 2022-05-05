@@ -17,7 +17,6 @@ modals = {path = "../../services/modals" }
 graphics-server = {path = "../../services/graphics-server" }
 locales = {path = "../../locales"}
 tts-frontend = {path="../../services/tts"}
-cosmrs = {path="/Users/gsora/Documents/Code/cosmos-rust/cosmrs"}
 
 #sha2 = {version = "0.9.5", default-features = false, features = []}
 sha2 = {path = "../../services/engine-sha512"}

@@ -2,7 +2,7 @@
 #![cfg_attr(target_os = "none", no_main)]
 
 mod webserver;
-mod cosmos;
+//mod cosmos;
 use getrandom::register_custom_getrandom;
 use rand_core::RngCore;
 use std::cell::RefCell;
@@ -192,12 +192,12 @@ fn xmain() -> ! {
                             }
                         });
                         log::info!("change focus on wallet");
-                        let tx = cosmos::build_test_tx();
+                        // let tx = cosmos::build_test_tx();
 
-                        modals.show_notification(
-                            "Scan this QR code on your smartphone to broadcast the generated transaction.",
-                            Some(&base64::encode(tx)),
-                        ).unwrap();
+                        // modals.show_notification(
+                        //     "Scan this QR code on your smartphone to broadcast the generated transaction.",
+                        //     Some(&base64::encode(tx)),
+                        // ).unwrap();
                     },
                 }
             }),
