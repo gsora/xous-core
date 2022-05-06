@@ -6,17 +6,11 @@
     "configurations": [
         {
             "type": "lldb",
-            "request": "launch",
-            "name": "Debug",
-            "program": "${workspaceFolder}/target/debug/status",
+            "request": "attach",
+            "name": "Attach",
+            "pid": "${command:pickMyProcess}",
             "args": [],
             "cwd": "${workspaceFolder}"
-          },
-          {
-            "type": "lldb",
-            "request": "attach",
-            "pid": "${command:pickProcess}",
-            "name": "Debug status",
-          }
+        }
     ]
 }
