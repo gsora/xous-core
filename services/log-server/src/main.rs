@@ -4,6 +4,8 @@
 mod api;
 use api::*;
 
+mod tcplogger;
+
 #[cfg(any(target_os = "none", target_os = "xous"))]
 #[macro_use]
 mod debug;
@@ -15,6 +17,8 @@ use num_traits::FromPrimitive;
 mod implementation {
     use core::fmt::{Error, Write};
     use std::sync::mpsc::{channel, Receiver, Sender};
+    use crate::tcplogger;
+
 
     enum ControlMessage {
         Text(String),
@@ -60,6 +64,7 @@ mod implementation {
         pub fn get_writer(&self) -> OutputWriter {
             OutputWriter {
                 tx: self.tx.clone(),
+                tcp_logger_cid: None,
             }
         }
     }
@@ -80,11 +85,13 @@ mod implementation {
 
     pub struct OutputWriter {
         tx: Sender<ControlMessage>,
+        pub tcp_logger_cid: Option<xous::CID>,
     }
 
     impl OutputWriter {
         pub fn putc(&self, c: u8) {
             self.tx.send(ControlMessage::Byte(c)).unwrap();
+            tcplogger::remote_putc(c);
         }
 
         /// Write a buffer to the output and return the number of
@@ -94,6 +101,7 @@ mod implementation {
             for c in buf {
                 self.putc(*c);
             }
+            
             buf.len()
         }
 
@@ -106,6 +114,7 @@ mod implementation {
         fn write_str(&mut self, s: &str) -> Result<(), Error> {
             // It would be nice if this worked with &str
             self.tx.send(ControlMessage::Text(s.to_owned())).unwrap();
+            tcplogger::write_str(s);
             Ok(())
         }
     }
@@ -114,7 +123,10 @@ mod implementation {
 #[cfg(any(target_os = "none", target_os = "xous"))]
 mod implementation {
     use core::fmt::{Error, Write};
+    use std::{net::{TcpListener, TcpStream, Shutdown}, io::Write as OtherWrite};
     use utralib::generated::*;
+
+    use crate::tcplogger;
 
     pub struct Output {}
 
@@ -157,7 +169,9 @@ mod implementation {
 
     impl Output {
         pub fn get_writer(&self) -> OutputWriter {
-            OutputWriter {}
+            OutputWriter {
+                tcp_logger_cid: None,
+            }
         }
 
         pub fn run(&mut self) {
@@ -203,7 +217,9 @@ mod implementation {
         }
     }
 
-    pub struct OutputWriter {}
+    pub struct OutputWriter {
+        pub tcp_logger_cid: Option<xous::CID>,
+    }
 
     impl OutputWriter {
         pub fn putc(&self, c: u8) {
@@ -218,6 +234,8 @@ mod implementation {
                 // the pending bit never clears. If the console seems to freeze, uncomment this line.
                 // This kind of works around that, at the expense of maybe losing some Rx characters.
                 // uart_csr.wfo(utra::uart::EV_PENDING_RX, 1);
+
+                tcplogger::remote_putc(c);
             }
         }
 
@@ -228,6 +246,7 @@ mod implementation {
             for c in buf {
                 self.putc(*c);
             }
+
             buf.len()
         }
 
@@ -244,6 +263,7 @@ mod implementation {
                     self.putc('\r' as u8);
                 }
             }
+
             Ok(())
         }
     }
@@ -400,6 +420,7 @@ fn reader_thread(arg: usize) {
     let server_addr = xous::create_server_with_address(b"xous-log-server ").unwrap();
     writeln!(output, "LOG: Server listening on address {:?}", server_addr).unwrap();
 
+    tcplogger::start();
     println!("LOG: my PID is {}", xous::process::id());
     let mut counter: usize = 0;
     loop {

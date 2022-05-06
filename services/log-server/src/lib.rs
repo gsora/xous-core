@@ -5,6 +5,7 @@ use num_traits::ToPrimitive;
 
 pub mod api;
 mod cursor;
+mod tcplogger;
 
 #[derive(Debug)]
 pub enum LogError {
