@@ -3,11 +3,7 @@ use std::{sync::Mutex, sync::Arc, net::TcpStream, io::Write, thread};
 use num_traits::*;
 use xous_ipc::Buffer;
 use once_cell::sync::Lazy;
-
-#[allow(dead_code)]
-static CONNECTED: Lazy<Mutex<RefCell<bool>>> = Lazy::new(|| {
-    Mutex::new(RefCell::new(false))
-});
+use threadpool::ThreadPool;
 
 #[allow(dead_code)]
 static SHARED_STREAM: Lazy<Arc<Mutex<Option<TcpStream>>>> = Lazy::new(|| {
@@ -32,8 +28,10 @@ pub fn start() {
 
 fn run_thread() -> ! {
     let shared_stream = SHARED_STREAM.clone();
+    let pool = ThreadPool::new(2);
 
     loop {
+
         let listener = std::net::TcpListener::bind("0.0.0.0:3333");
         let listener = match listener {
             Ok(listener) => listener,
@@ -45,66 +43,90 @@ fn run_thread() -> ! {
 
         for i in listener.incoming() {
             match i {
-                Err(error) => {}, // TODO: handle disconnection
+                Err(error) => {
+
+                }, // TODO: handle disconnection
                 Ok(stream) => {
                     let mut shared_stream = shared_stream.lock().unwrap();
+                    if shared_stream.is_some() {
+                        stream.shutdown(std::net::Shutdown::Both);
+                        std::thread::sleep_ms(150);
+                        drop(stream);
+                        continue
+                    }
+
                     *shared_stream = Some(stream);
-                    CONNECTED.lock().unwrap().replace(true);
                 }
             }
         }
     }
-
-
-    // loop {
-    //     let msg = xous::receive_message(sid).unwrap();
-    //     match FromPrimitive::from_usize(msg.body.id()) {
-    //         Some(TcpLoggerOp::Log) => {
-    //             if shared_stream_copy.lock().unwrap().is_none() {
-    //                 continue
-    //             }
-
-    //             let buffer = unsafe { Buffer::from_memory_message(msg.body.memory_message().unwrap()) };
-    //             let s = buffer.as_flat::<xous_ipc::String<4000>, _>().unwrap(); // 4k chars ought be enough for everybody
-    //             let mut shared_stream =  shared_stream_copy.lock().unwrap();
-    //             match &mut *shared_stream {
-    //                 Some(stream) => {
-    //                     stream.write(s.as_str().as_bytes()).unwrap();
-    //                     stream.flush().unwrap();
-    //                 },
-    //                 None => {},
-    //             }                
-    //         },
-    //         _ => {}, // TODO: how to unwrap data?
-    //     }
-    // }
 }
 
 pub fn write_str(data: &str) {
-    if !*CONNECTED.lock().unwrap().borrow() {
-        return
-    }
     let mut shared_stream =  SHARED_STREAM.lock().unwrap();
     match &mut *shared_stream {
         Some(stream) => {
-            stream.write_all(data.as_bytes()).unwrap();
-            stream.flush().unwrap();
+            let mut was_error = false;
+            if stream.write_all(data.as_bytes()).is_err() || stream.flush().is_err() {
+                was_error = true;
+            }
+        
+            if was_error {
+                stream.shutdown(std::net::Shutdown::Both);
+                std::thread::sleep_ms(150);
+                drop(stream);
+                *shared_stream = None;
+                return
+            }
+
+            //std::thread::sleep_ms(50);
+        },
+        None => {},
+    }     
+}
+
+pub fn write_array(data: &[u8]) {
+    let mut shared_stream =  SHARED_STREAM.lock().unwrap();
+    match &mut *shared_stream {
+        Some(stream) => {
+            let mut was_error = false;
+            if stream.write_all(data).is_err() || stream.flush().is_err() {
+                was_error = true;
+            }
+        
+            if was_error {
+                stream.shutdown(std::net::Shutdown::Both);
+                std::thread::sleep_ms(150);
+                drop(stream);
+                *shared_stream = None;
+                return
+            }
+
+            //std::thread::sleep_ms(50);
         },
         None => {},
     }     
 }
 
 pub fn remote_putc(c: u8) {
-    if !*CONNECTED.lock().unwrap().borrow() {
-        return
-    }
-
     let mut shared_stream =  SHARED_STREAM.lock().unwrap();
     match &mut *shared_stream {
         Some(stream) => {
             let vc = [c];
-            stream.write(&vc).unwrap();
-            stream.flush().unwrap();
+            let mut was_error = false;
+            if stream.write(&vc).is_err() || stream.flush().is_err() {
+                was_error = true;
+            }
+        
+            if was_error {
+                stream.shutdown(std::net::Shutdown::Both);
+                std::thread::sleep_ms(150);
+                drop(stream);
+                *shared_stream = None;
+                 return
+            }
+
+            //std::thread::sleep_ms(50);
         },
         None => {},
     }           

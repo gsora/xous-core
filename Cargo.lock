@@ -1677,6 +1677,7 @@ dependencies = [
  "num-derive",
  "num-traits",
  "once_cell",
+ "threadpool",
  "utralib",
  "xous",
  "xous-ipc 0.9.7",
@@ -3087,6 +3088,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8208a331e1cb318dd5bd76951d2b8fc48ca38a69f5f4e4af1b6a9f8c6236915"
 dependencies = [
  "once_cell",
+]
+
+[[package]]
+name = "threadpool"
+version = "1.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d050e60b33d41c19108b32cea32164033a9013fe3b46cbd4457559bfbf77afaa"
+dependencies = [
+ "num_cpus",
 ]
 
 [[package]]

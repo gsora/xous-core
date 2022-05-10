@@ -2,7 +2,7 @@ use rkyv::{Archive, Deserialize, Serialize};
 use crate::api::*;
 use com::api::NET_MTU;
 
-pub(crate) const TCP_BUFFER_SIZE: usize = NET_MTU;
+pub(crate) const TCP_BUFFER_SIZE: usize = 4096;
 
 #[derive(Debug, Archive, Serialize, Deserialize, Copy, Clone)]
 pub(crate) struct NetTcpManage {

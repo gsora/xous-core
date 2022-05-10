@@ -316,6 +316,13 @@ fn xmain() -> ! {
     log::set_max_level(log::LevelFilter::Info);
     info!("my PID is {}", xous::process::id());
 
+    // std::thread::spawn(||{
+    //     loop {
+    //         log::info!("shellchat here");
+    //         std::thread::sleep_ms(1000);
+    //     }
+    // });
+
     let xns = xous_names::XousNames::new().unwrap();
     // unlimited connections allowed, this is a user app and it's up to the app to decide its policy
     let shch_sid = xns.register_name(SERVER_NAME_SHELLCHAT, None).expect("can't register server");

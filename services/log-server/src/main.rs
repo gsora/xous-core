@@ -234,7 +234,6 @@ mod implementation {
                 // the pending bit never clears. If the console seems to freeze, uncomment this line.
                 // This kind of works around that, at the expense of maybe losing some Rx characters.
                 // uart_csr.wfo(utra::uart::EV_PENDING_RX, 1);
-
                 tcplogger::remote_putc(c);
             }
         }
@@ -243,9 +242,9 @@ mod implementation {
         /// bytes written. This is mostly compatible with `std::io::Write`,
         /// except it is infallible.
         pub fn write(&mut self, buf: &[u8]) -> usize {
-            for c in buf {
-                self.putc(*c);
-            }
+            // for c in buf {
+            //     self.putc(*c);
+            // }
 
             buf.len()
         }
@@ -263,6 +262,9 @@ mod implementation {
                     self.putc('\r' as u8);
                 }
             }
+
+            // THIS THING GETS CALLED FOR THE INFO:: {log stuff here} (LINENUMBER)
+            //tcplogger::write_str(s);
 
             Ok(())
         }
