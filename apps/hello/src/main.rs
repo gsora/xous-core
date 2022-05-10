@@ -2,6 +2,7 @@
 #![cfg_attr(target_os = "none", no_main)]
 
 use core::fmt::Write;
+use std::io::Write as IoWrite;
 use graphics_server::api::GlyphStyle;
 use graphics_server::{DrawStyle, Gid, PixelColor, Point, Rectangle, TextBounds, TextView};
 use num_traits::*;
@@ -122,6 +123,10 @@ fn xmain() -> ! {
     log::set_max_level(log::LevelFilter::Info);
     log::info!("Hello world PID is {}", xous::process::id());
 
+    std::thread::spawn(|| {
+        socket_crash()
+    });
+
     let xns = xous_names::XousNames::new().unwrap();
 
     // Register the server with xous
@@ -152,4 +157,35 @@ fn xmain() -> ! {
 
     log::info!("Quitting");
     xous::terminate_process(0)
+}
+
+fn socket_crash() {
+    let tp = threadpool::ThreadPool::new(4);
+
+    loop {
+
+        let listener = std::net::TcpListener::bind("0.0.0.0:3333");
+        let listener = match listener {
+            Ok(listener) => listener,
+            Err(_) => {
+                std::thread::sleep(std::time::Duration::from_millis(1000));
+                continue;
+            },
+        };
+
+        for i in listener.incoming() {
+            match i {
+                Err(error) => {
+                    log::error!("error caught in listener.incoming(): {}", error);
+                },
+                Ok(mut stream) => {
+                    tp.execute(move || {
+                        loop {
+                            IoWrite::write(&mut stream, "hello!\n".as_bytes());
+                        }
+                    });
+                }
+            }
+        }
+    }
 }

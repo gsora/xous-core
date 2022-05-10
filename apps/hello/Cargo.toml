@@ -15,6 +15,7 @@ gam = {path = "../../services/gam" }
 graphics-server = {path = "../../services/graphics-server" }
 locales = {path = "../../locales"}
 tts-frontend = {path="../../services/tts"}
+threadpool = "1.8.1"
 
 [features]
 tts = []
