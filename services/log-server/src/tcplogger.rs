@@ -1,111 +1,98 @@
-use core::{cell::{RefCell}};
-use std::{sync::Mutex, sync::Arc, net::TcpStream, io::Write, thread};
-use num_traits::*;
-use xous_ipc::Buffer;
-use once_cell::sync::Lazy;
+use std::{sync::Mutex, sync::Arc, net::TcpStream};
 
-#[allow(dead_code)]
-static CONNECTED: Lazy<Mutex<RefCell<bool>>> = Lazy::new(|| {
-    Mutex::new(RefCell::new(false))
-});
-
-#[allow(dead_code)]
-static SHARED_STREAM: Lazy<Arc<Mutex<Option<TcpStream>>>> = Lazy::new(|| {
-    Arc::new(Mutex::new(None))
-});
-
-
-#[derive(Debug, num_derive::FromPrimitive, num_derive::ToPrimitive)]
-pub(crate) enum TcpLoggerOp {
-    Log = 0
+#[derive(Clone)]
+pub struct TcpLogger {
+    stream: Arc<Mutex<Option<TcpStream>>>,
 }
 
-pub fn start() {
-    std::thread::spawn(move || run_thread());
-    // std::thread::spawn(|| {
-    //     loop {
-    //         write_str("hello!\n");
-    //         std::thread::sleep(std::time::Duration::from_millis(1000));
-    //     }
-    // });
-}
-
-fn run_thread() -> ! {
-    let shared_stream = SHARED_STREAM.clone();
-
-    loop {
-        let listener = std::net::TcpListener::bind("0.0.0.0:3333");
-        let listener = match listener {
-            Ok(listener) => listener,
-            Err(_) => {
-                std::thread::sleep(std::time::Duration::from_millis(1000));
-                continue;
-            },
+#[cfg(tcp_logging)]
+impl TcpLogger {
+    pub fn new() -> Self {
+        let tl = TcpLogger {
+            stream: Arc::new(Mutex::new(None)),
         };
 
-        for i in listener.incoming() {
-            match i {
-                Err(error) => {}, // TODO: handle disconnection
-                Ok(stream) => {
-                    let mut shared_stream = shared_stream.lock().unwrap();
-                    *shared_stream = Some(stream);
-                    CONNECTED.lock().unwrap().replace(true);
+        std::thread::spawn({
+            let mut tl = tl.clone();
+            move || {
+                tl.run_thread()
+            }
+        });
+
+        tl
+    }
+
+    fn run_thread(&mut self) -> ! {    
+        loop {
+            let listener = std::net::TcpListener::bind("0.0.0.0:65535");
+            let listener = match listener {
+                Ok(listener) => listener,
+                Err(_) => {
+                    std::thread::sleep(std::time::Duration::from_millis(1000));
+                    continue;
+                },
+            };
+    
+            for i in listener.incoming() {
+                match i {
+                    Err(error) => { // TODO: how do we print this without logging to socket?
+                        let mut shared_stream = self.stream.lock().unwrap();
+                        let shared_stream_inner = shared_stream.as_ref();
+                        match shared_stream_inner {
+                            Some(ss) => {
+                                drop(ss);
+                            }
+                            None => {
+                                continue;
+                            }
+                        }
+                        *shared_stream = None;
+                    }, 
+                    Ok(stream) => {
+                        let mut shared_stream = self.stream.lock().unwrap();
+                        *shared_stream = Some(stream);
+                    }
                 }
             }
         }
     }
 
-
-    // loop {
-    //     let msg = xous::receive_message(sid).unwrap();
-    //     match FromPrimitive::from_usize(msg.body.id()) {
-    //         Some(TcpLoggerOp::Log) => {
-    //             if shared_stream_copy.lock().unwrap().is_none() {
-    //                 continue
-    //             }
-
-    //             let buffer = unsafe { Buffer::from_memory_message(msg.body.memory_message().unwrap()) };
-    //             let s = buffer.as_flat::<xous_ipc::String<4000>, _>().unwrap(); // 4k chars ought be enough for everybody
-    //             let mut shared_stream =  shared_stream_copy.lock().unwrap();
-    //             match &mut *shared_stream {
-    //                 Some(stream) => {
-    //                     stream.write(s.as_str().as_bytes()).unwrap();
-    //                     stream.flush().unwrap();
-    //                 },
-    //                 None => {},
-    //             }                
-    //         },
-    //         _ => {}, // TODO: how to unwrap data?
-    //     }
-    // }
+    pub fn write_str(&self, data: &str) {
+        let mut shared_stream =  self.stream.lock().unwrap();
+        match &mut *shared_stream {
+            Some(stream) => {
+                stream.write_all(data.as_bytes()).unwrap();
+                stream.flush().unwrap();
+            },
+            None => {},
+        }     
+    }
+    
+    pub fn write_array(&self, data: &[u8]) {
+        let mut shared_stream =  self.stream.lock().unwrap();
+        match &mut *shared_stream {
+            Some(stream) => {
+                stream.write_all(data).unwrap();
+                stream.flush().unwrap();
+            },
+            None => {},
+        }     
+    }
 }
 
-pub fn write_str(data: &str) {
-    if !*CONNECTED.lock().unwrap().borrow() {
-        return
-    }
-    let mut shared_stream =  SHARED_STREAM.lock().unwrap();
-    match &mut *shared_stream {
-        Some(stream) => {
-            stream.write_all(data.as_bytes()).unwrap();
-            stream.flush().unwrap();
-        },
-        None => {},
-    }     
-}
-
-pub fn remote_putc(c: u8) {
-    if !*CONNECTED.lock().unwrap().borrow() {
-        return
+#[cfg(not(tcp_logging))]
+impl TcpLogger {
+    pub fn new() -> Self {
+        TcpLogger {
+            stream: Arc::new(Mutex::new(None))
+        }
     }
 
-    let mut shared_stream =  SHARED_STREAM.lock().unwrap();
-    match &mut *shared_stream {
-        Some(stream) => {
-            let vc = [c];
-            stream.write(&vc).unwrap();
-            stream.flush().unwrap();
-        },
-        None => {},
-    }           
+    pub fn write_str(&self, data: &str) {
+        // no-op
+    }
+    
+    pub fn write_array(&self, data: &[u8]) {
+        // no-op
+    }
 }

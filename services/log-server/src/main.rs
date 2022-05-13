@@ -64,7 +64,7 @@ mod implementation {
         pub fn get_writer(&self) -> OutputWriter {
             OutputWriter {
                 tx: self.tx.clone(),
-                tcp_logger_cid: None,
+                tcp_logger: None,
             }
         }
     }
@@ -85,13 +85,12 @@ mod implementation {
 
     pub struct OutputWriter {
         tx: Sender<ControlMessage>,
-        pub tcp_logger_cid: Option<xous::CID>,
+        pub tcp_logger: Option<tcplogger::TcpLogger>,
     }
 
     impl OutputWriter {
         pub fn putc(&self, c: u8) {
             self.tx.send(ControlMessage::Byte(c)).unwrap();
-            tcplogger::remote_putc(c);
         }
 
         /// Write a buffer to the output and return the number of
@@ -114,7 +113,6 @@ mod implementation {
         fn write_str(&mut self, s: &str) -> Result<(), Error> {
             // It would be nice if this worked with &str
             self.tx.send(ControlMessage::Text(s.to_owned())).unwrap();
-            tcplogger::write_str(s);
             Ok(())
         }
     }
@@ -170,7 +168,7 @@ mod implementation {
     impl Output {
         pub fn get_writer(&self) -> OutputWriter {
             OutputWriter {
-                tcp_logger_cid: None,
+                tcp_logger: None,
             }
         }
 
@@ -218,7 +216,7 @@ mod implementation {
     }
 
     pub struct OutputWriter {
-        pub tcp_logger_cid: Option<xous::CID>,
+        pub tcp_logger: Option<tcplogger::TcpLogger>,
     }
 
     impl OutputWriter {
@@ -235,7 +233,7 @@ mod implementation {
                 // This kind of works around that, at the expense of maybe losing some Rx characters.
                 // uart_csr.wfo(utra::uart::EV_PENDING_RX, 1);
 
-                tcplogger::remote_putc(c);
+                //tcplogger::remote_putc(c);
             }
         }
 
@@ -245,6 +243,10 @@ mod implementation {
         pub fn write(&mut self, buf: &[u8]) -> usize {
             for c in buf {
                 self.putc(*c);
+            }
+
+            if let Some(tcplogger) = &self.tcp_logger {
+                tcplogger.write_array(buf);
             }
 
             buf.len()
@@ -262,6 +264,10 @@ mod implementation {
                 if c == '\n' as u8 {
                     self.putc('\r' as u8);
                 }
+            }
+
+            if let Some(tcplogger) = &self.tcp_logger {
+                tcplogger.write_str(s);
             }
 
             Ok(())
@@ -359,21 +365,35 @@ fn handle_opcode(
 
                 let args_slice = &lr.args[0..lr.args_length as usize];
 
-                let module_slice = &lr.module[0..lr.module_length as usize];
+                let module_slice = &lr.module[0..lr.module_length as usize];                
 
                 write!(output, "{}:", level).ok();
                 for c in module_slice {
                     output.putc(*c);
                 }
+
+                if let Some(tcplogger) = &output.tcp_logger {
+                    tcplogger.write_array(module_slice);
+                }
+
                 write!(output, ": ").ok();
                 for c in args_slice {
                     output.putc(*c);
+                }
+
+                if let Some(tcplogger) = &output.tcp_logger {
+                    tcplogger.write_array(args_slice);
                 }
 
                 write!(output, " (").ok();
                 for c in file_slice {
                     output.putc(*c);
                 }
+
+                if let Some(tcplogger) = &output.tcp_logger {
+                    tcplogger.write_array(file_slice);
+                }
+
                 if let Some(line) = lr.line {
                     write!(output, ":{}", line.get()).ok();
                 }
@@ -420,7 +440,8 @@ fn reader_thread(arg: usize) {
     let server_addr = xous::create_server_with_address(b"xous-log-server ").unwrap();
     writeln!(output, "LOG: Server listening on address {:?}", server_addr).unwrap();
 
-    tcplogger::start();
+    let tl = tcplogger::TcpLogger::new();
+    output.tcp_logger = Some(tl);
     println!("LOG: my PID is {}", xous::process::id());
     let mut counter: usize = 0;
     loop {
