@@ -139,7 +139,6 @@ impl<'a> ShellCmdApi<'a> for NetCmd {
                                     let bi = boot_instant.clone();
                                     move || {
                                         handle_connection(stream, bi);
-                                        log::info!("connection closed");
                                     }
                                 });
                             }
@@ -148,6 +147,54 @@ impl<'a> ShellCmdApi<'a> for NetCmd {
                         }
                     });
                     write!(ret, "TCP listener started on port 80").unwrap();
+                }
+                "fountain" => {
+                    // anything typed after fountain will cause this to be a short test
+                    let short_test = tokens.next().is_some();
+                    thread::spawn({
+                        let short_test = short_test.clone();
+                        move || {
+                            let tp = threadpool::ThreadPool::new(4);
+                            loop {
+                                let listener = std::net::TcpListener::bind("0.0.0.0:3333");
+                                let listener = match listener {
+                                    Ok(listener) => listener,
+                                    Err(_) => {
+                                        std::thread::sleep(std::time::Duration::from_millis(1000));
+                                        continue;
+                                    },
+                                };
+
+                                for i in listener.incoming() {
+                                    match i {
+                                        Err(error) => {
+                                            log::error!("error caught in listener.incoming(): {}", error);
+                                        },
+                                        Ok(mut stream) => {
+                                            tp.execute(move || {
+                                                let mut count = 0;
+                                                loop {
+                                                    match std::io::Write::write(&mut stream, format!("hello! {}\n", count).as_bytes()) {
+                                                        Err(e) => {
+                                                            log::info!("fountain write failed with error {:?}", e);
+                                                            break;
+                                                        }
+                                                        _ => {}
+                                                    }
+                                                    count += 1;
+                                                    if count == 10 && short_test {
+                                                        stream.flush().unwrap();
+                                                        break;
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    write!(ret, "Fountain started on port 3333").unwrap();
                 }
                 // Testing of udp is done with netcat:
                 // to send packets run `netcat -u <precursor ip address> 6502` on a remote host, and then type some data
@@ -493,7 +540,7 @@ impl Worker {
 
             match message {
                 Message::NewJob(job) => {
-                    log::info!("Worker {} got a job; executing.", id);
+                    log::debug!("Worker {} got a job; executing.", id);
 
                     job();
                 }
