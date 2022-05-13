@@ -2750,6 +2750,7 @@ dependencies = [
  "spectrum-analyzer",
  "spinor",
  "susres",
+ "threadpool",
  "ticktimer-server",
  "trng",
  "tts-frontend",
@@ -2792,8 +2793,9 @@ checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
 
 [[package]]
 name = "smoltcp"
-version = "0.8.0"
-source = "git+https://github.com/smoltcp-rs/smoltcp.git?rev=35e833e33dfd3e4efc3eb7d5de06bec17c54b011#35e833e33dfd3e4efc3eb7d5de06bec17c54b011"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72165c4af59f5f19c7fb774b88b95660591b612380305b5f4503157341a9f7ee"
 dependencies = [
  "bitflags",
  "byteorder",
