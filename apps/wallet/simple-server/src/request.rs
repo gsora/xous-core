@@ -29,7 +29,7 @@ pub fn read<S: Read>(stream: &mut S, timeout: Option<Duration>) -> Result<Reques
                 match parsing::try_parse_request(mem::replace(&mut buffer, vec![]))? {
                     parsing::ParseResult::Complete(r) => break r,
                     parsing::ParseResult::Partial(b) => {
-                        mem::replace(&mut buffer, b);
+                        let _ = mem::replace(&mut buffer, b);
                         continue;
                     }
                 }
@@ -118,12 +118,12 @@ mod server_should {
                     0 => {
                         let half = self.content.len() / 2;
                         let min = ::std::cmp::min(half, buf.len());
-                        &buf[..min].copy_from_slice(&self.content[..min]);
+                        let _ = &buf[..min].copy_from_slice(&self.content[..min]);
                         min
                     }
                     _ => {
                         let min = ::std::cmp::min(self.content[self.bytes_read..].len(), buf.len());
-                        &buf[..min]
+                        let _ = &buf[..min]
                             .copy_from_slice(&self.content[self.bytes_read..self.bytes_read + min]);
                         min
                     }

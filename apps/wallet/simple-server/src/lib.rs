@@ -42,7 +42,6 @@ pub use http::Request;
 
 use scoped_threadpool::Pool;
 
-use std::env;
 use std::fmt;
 use std::fs::File;
 use std::io::prelude::*;
