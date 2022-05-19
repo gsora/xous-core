@@ -54,6 +54,8 @@ pub(crate) enum HelloOp {
 
     /// Quit the application
     Quit,
+
+    AuthorizationModal,
 }
 
 struct Hello {
@@ -172,11 +174,28 @@ fn xmain() -> ! {
 
     let modals = modals::Modals::new(&xns).unwrap();
 
+    let webserver_cid = xous::connect(sid).unwrap();
+
     loop {
         let msg = xous::receive_message(sid).unwrap();
         log::debug!("Got message: {:?}", msg);
 
         match FromPrimitive::from_usize(msg.body.id()) {
+            Some(HelloOp::AuthorizationModal) => {
+                modals.add_list(["Yes", "No"].to_vec()).unwrap();
+                let choice = match modals.get_radiobutton("Authorization request came in, should we allow it?") {
+                    Ok(choice) => {
+                        if choice == "Yes" {
+                            1
+                        } else {
+                            0
+                        }
+                    },
+                    Err(_) => 0,
+                };
+
+                xous::return_scalar(msg.sender, choice).expect("couldn't return choice");
+            }
             Some(HelloOp::Redraw) => {
                 log::debug!("Got redraw");
                 hello.redraw();
@@ -187,8 +206,8 @@ fn xmain() -> ! {
                     gam::FocusState::Background => {},
                     gam::FocusState::Foreground => {
                         std::thread::spawn({
-                            || {
-                                webserver::run();
+                            move || {
+                                webserver::run(webserver_cid, HelloOp::AuthorizationModal.to_u32().unwrap());
                             }
                         });
                         log::info!("change focus on wallet");
@@ -204,7 +223,7 @@ fn xmain() -> ! {
             Some(HelloOp::Quit) => {
                 log::info!("Quitting application");
                 break;
-            }
+            },
             _ => {
                 log::error!("Got unknown message");
             }

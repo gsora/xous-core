@@ -23,6 +23,13 @@
 //! To see examples of this crate in use, please consult the `examples`
 //! directory.
 
+#[macro_export]
+macro_rules! middleware {
+    ($wrapper:expr, $wrapped:expr) => {
+        $wrapper(Box::new($wrapped))
+    };
+}
+
 #[macro_use]
 extern crate log;
 
@@ -42,6 +49,7 @@ pub use http::Request;
 
 use scoped_threadpool::Pool;
 
+use std::collections::{HashMap};
 use std::fmt;
 use std::fs::File;
 use std::io::prelude::*;
@@ -67,9 +75,9 @@ pub type Handler =
 /// This is the core type of this crate, and is used to create a new
 /// server and listen for connections.
 pub struct Server {
-    handler: Handler,
     timeout: Option<Duration>,
     static_directory: Option<PathBuf>,
+    path_maps: HashMap<(String, String), Box<dyn Fn(http::Request<Vec<u8>>, ResponseBuilder) -> ResponseResult + 'static + Send + Sync>>,
 }
 
 impl fmt::Debug for Server {
@@ -110,15 +118,19 @@ impl Server {
     ///     });
     /// }
     /// ```
-    pub fn new<H>(handler: H) -> Server
-    where
-        H: Fn(Request<Vec<u8>>, ResponseBuilder) -> ResponseResult + 'static + Send + Sync,
+    pub fn new() -> Server
     {
         Server {
-            handler: Box::new(handler),
             timeout: None,
             static_directory: Some(PathBuf::from("public")),
+            path_maps: HashMap::new(),
         }
+    }
+
+    pub fn route<H>(&mut self, method: http::Method, path: &str, handler: H) 
+    where
+    H: Fn(http::Request<Vec<u8>>, ResponseBuilder) -> ResponseResult + 'static + Send + Sync, {
+        self.path_maps.insert((method.to_string(), path.to_string()), Box::new(handler));
     }
 
     /// Constructs a new server with the given handler and the specified request
@@ -155,9 +167,9 @@ impl Server {
         H: Fn(Request<Vec<u8>>, ResponseBuilder) -> ResponseResult + 'static + Send + Sync,
     {
         Server {
-            handler: Box::new(handler),
             timeout: Some(timeout),
             static_directory: Some(PathBuf::from("public")),
+            path_maps: HashMap::new(),
         }
     }
 
@@ -403,18 +415,31 @@ impl Server {
             }
         }
 
-        match (self.handler)(request, response_builder) {
-            Ok(response) => Ok(write_response(response, stream)?),
-            Err(_) => {
+        match self.path_maps.get(&(request.method().to_string(), request.uri().clone().path().to_string())) {
+            Some(handler) => {
+                if let Ok(response) = handler(request, response_builder) {
+                    return Ok(write_response(response, stream)?);
+                } else {
+                    let mut response_builder = Response::builder();
+                    response_builder.status(StatusCode::INTERNAL_SERVER_ERROR);
+    
+                    let response = response_builder
+                        .body("<h1>500</h1><p>Internal server error.<p>".as_bytes())
+                        .unwrap();
+    
+                    return Ok(write_response(response, stream)?);
+                }
+            },
+            None => {
                 let mut response_builder = Response::builder();
-                response_builder.status(StatusCode::INTERNAL_SERVER_ERROR);
+                response_builder.status(StatusCode::NOT_FOUND);
 
                 let response = response_builder
-                    .body("<h1>500</h1><p>Internal Server Error!<p>".as_bytes())
+                    .body("<h1>404</h1><p>Not found.<p>".as_bytes())
                     .unwrap();
 
                 Ok(write_response(response, stream)?)
-            }
+            },
         }
     }
 }
