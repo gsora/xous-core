@@ -310,6 +310,8 @@ fn handle_scalar(
                 }
                 output.putc(*c);
             }
+
+            output.write_all(&output_bfr).ok();
         }
         1200 => writeln!(output, "Terminating process").unwrap(),
         2000 => {
@@ -365,39 +367,26 @@ fn handle_opcode(
 
                 let args_slice = &lr.args[0..lr.args_length as usize];
 
-                let module_slice = &lr.module[0..lr.module_length as usize];                
+                let module_slice = &lr.module[0..lr.module_length as usize];     
+                
+                use std::io::Write;
+                let mut output_vec: Vec<u8> = vec![];
 
-                write!(output, "{}:", level).ok();
-                for c in module_slice {
-                    output.putc(*c);
-                }
+                write!(output_vec, "{}:", level).ok();
+                output_vec.extend_from_slice(module_slice);
 
-                if let Some(tcplogger) = &output.tcp_logger {
-                    tcplogger.write_array(module_slice);
-                }
+                write!(output_vec, ": ").ok();
+                output_vec.extend_from_slice(args_slice);
 
-                write!(output, ": ").ok();
-                for c in args_slice {
-                    output.putc(*c);
-                }
-
-                if let Some(tcplogger) = &output.tcp_logger {
-                    tcplogger.write_array(args_slice);
-                }
-
-                write!(output, " (").ok();
-                for c in file_slice {
-                    output.putc(*c);
-                }
-
-                if let Some(tcplogger) = &output.tcp_logger {
-                    tcplogger.write_array(file_slice);
-                }
+                write!(output_vec, " (").ok();
+                output_vec.extend_from_slice(file_slice);
 
                 if let Some(line) = lr.line {
-                    write!(output, ":{}", line.get()).ok();
+                    write!(output_vec, ":{}", line.get()).ok();
                 }
-                writeln!(output, ")").ok();
+                writeln!(output_vec, ")").ok();
+
+                output.write(&output_vec);
             }
             api::Opcode::StandardOutput | api::Opcode::StandardError => {
                 // let mut buffer_start_offset = mem.offset.map(|o| o.get()).unwrap_or(0);

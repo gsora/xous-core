@@ -23,5 +23,5 @@ logging = [] # adding this allocates the hardware UART for console interactions
 tcp_logging = [] # adding this opens a socket on port 65535 on which the device prints logs
                  # it's no-op in hosted mode, useful to debug apps on physical device without serial cables 
 #default = []
-default = ["logging"]
+default = ["logging", "tcp_logging"]
 # default = ["debugprint", "logging"]

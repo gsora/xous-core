@@ -1,12 +1,14 @@
 use std::{sync::Mutex, sync::Arc, net::TcpStream};
+use std::io::Write;
 
 #[derive(Clone)]
 pub struct TcpLogger {
     stream: Arc<Mutex<Option<TcpStream>>>,
 }
 
-#[cfg(tcp_logging)]
+#[cfg(feature = "tcp_logging")]
 impl TcpLogger {
+    
     pub fn new() -> Self {
         let tl = TcpLogger {
             stream: Arc::new(Mutex::new(None)),
@@ -80,7 +82,7 @@ impl TcpLogger {
     }
 }
 
-#[cfg(not(tcp_logging))]
+#[cfg(not(feature = "tcp_logging"))]
 impl TcpLogger {
     pub fn new() -> Self {
         TcpLogger {
