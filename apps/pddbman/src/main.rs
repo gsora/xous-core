@@ -2,7 +2,6 @@
 #![cfg_attr(target_os = "none", no_main)]
 
 use core::fmt::Write;
-use std::collections::HashMap;
 use graphics_server::api::GlyphStyle;
 use graphics_server::{DrawStyle, Gid, PixelColor, Point, Rectangle, TextBounds, TextView};
 use num_traits::*;
