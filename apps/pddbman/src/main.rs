@@ -134,22 +134,15 @@ impl PddbMan {
         let idx = self.modals.get_radio_index().unwrap();
         log::trace!("selected radio index: {idx}");
 
-        match idx {
-            0 => self
-                .unlock_basis()
-                .unwrap_or_else(|err| self.show_error_notification(err)),
-            1 => self
-                .create_basis()
-                .unwrap_or_else(|err| self.show_error_notification(err)),
-            2 => self
-                .delete_basis()
-                .unwrap_or_else(|err| self.show_error_notification(err)),
-            3 => self
-                .lock_basis()
-                .unwrap_or_else(|err| self.show_error_notification(err)),
-            4 => {}
-            _ => {}
+        let result = match idx {
+            0 => self.unlock_basis(),
+            1 => self.create_basis(),
+            2 => self.delete_basis(),
+            3 => self.lock_basis(),
+            _ => Ok(()), // Close menu
         };
+
+        result.unwrap_or_else(|err| self.show_error_notification(err));
     }
 
     fn modal_basis_name(&self) -> String {
@@ -188,7 +181,7 @@ impl PddbMan {
 
 fn main() -> ! {
     log_server::init_wait().unwrap();
-    log::set_max_level(log::LevelFilter::Trace);
+    log::set_max_level(log::LevelFilter::Info);
     log::info!("PDDB manager PID is {}", xous::process::id());
 
     let xns = xous_names::XousNames::new().unwrap();
