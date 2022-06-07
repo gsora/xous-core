@@ -2315,6 +2315,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pddbman"
+version = "0.1.0"
+dependencies = [
+ "gam",
+ "graphics-server",
+ "locales",
+ "log",
+ "log-server",
+ "modals",
+ "num-derive",
+ "num-traits",
+ "pddb",
+ "tts-frontend",
+ "xous",
+ "xous-ipc 0.9.7",
+ "xous-names",
+]
+
+[[package]]
 name = "pem"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

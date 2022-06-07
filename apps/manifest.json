@@ -21,6 +21,14 @@
             }
         }
     },
+    "pddbman": {
+        "context_name": "PDDB manager",
+        "menu_name": {
+            "appmenu.pddbman": {
+                "en": "PDDB manager"
+            }
+        }
+    },
     "vault": {
         "context_name": "Key Vault",
         "menu_name": {
