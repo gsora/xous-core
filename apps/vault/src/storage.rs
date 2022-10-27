@@ -1,3 +1,5 @@
+use cbor::reader::DecoderError;
+use cbor::{cbor_map, cbor_key_int, destructure_cbor_map};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use std::convert::TryFrom;
 use std::{
@@ -26,6 +28,8 @@ pub enum Error {
     IoError(std::io::Error),
     TotpSerError(TOTPSerializationError),
     PasswordSerError(PasswordSerializationError),
+    CborError(DecoderError),
+    BadCbor,
     KeyExists,
     DupesExist(Vec<usize>),
 }
@@ -35,6 +39,13 @@ impl From<std::io::Error> for Error {
         Self::IoError(e)
     }
 }
+
+impl From<DecoderError> for Error {
+    fn from(e: DecoderError) -> Self {
+        Self::CborError(e)
+    }
+}
+
 
 impl From<TOTPSerializationError> for Error {
     fn from(e: TOTPSerializationError) -> Self {
@@ -609,87 +620,64 @@ impl StorageContent for PasswordRecord {
     }
 
     fn from_vec(&mut self, data: Vec<u8>) -> Result<(), Error> {
-        let desc_str =
-            String::from_utf8(data).or(Err(PasswordSerializationError::MalformedInput))?;
+        let value = cbor::read(&data)?;
 
-        let mut pr = PasswordRecord::default();
+        let rawmap = match value {
+            cbor::Value::Map(m) => m,
+            _ => return Err(Error::BadCbor),
+        };
 
-        let lines = desc_str.split('\n');
-        for line in lines {
-            if let Some((tag, data)) = line.split_once(':') {
-                match tag {
-                    "version" => {
-                        if let Ok(ver) = u32::from_str_radix(data, 10) {
-                            pr.version = ver
-                        } else {
-                            log::warn!("ver error");
-                            return Err(PasswordSerializationError::BadVersion)?;
-                        }
-                    }
-                    "description" => pr.description.push_str(data),
-                    "username" => pr.username.push_str(data),
-                    "password" => pr.password.push_str(data),
-                    "notes" => pr.notes.push_str(data),
-                    "ctime" => {
-                        if let Ok(ctime) = u64::from_str_radix(data, 10) {
-                            pr.ctime = ctime;
-                        } else {
-                            log::warn!("ctime error");
-                            return Err(PasswordSerializationError::BadCtime)?;
-                        }
-                    }
-                    "atime" => {
-                        if let Ok(atime) = u64::from_str_radix(data, 10) {
-                            pr.atime = atime;
-                        } else {
-                            log::warn!("atime error");
-                            return Err(PasswordSerializationError::BadAtime)?;
-                        }
-                    }
-                    "count" => {
-                        if let Ok(count) = u64::from_str_radix(data, 10) {
-                            pr.count = count;
-                        } else {
-                            log::warn!("count error");
-                            return Err(PasswordSerializationError::BadCount)?;
-                        }
-                    }
-                    _ => {
-                        log::warn!(
-                            "unexpected tag {} encountered parsing password info, ignoring",
-                            tag
-                        );
-                    }
-                }
-            } else {
-                log::trace!("invalid line skipped: {:?}", line);
-            }
+        destructure_cbor_map! {
+            let {
+                1 => version,
+                2 => description,
+                3 => username,
+                4 => password,
+                5 => notes,
+                6 => ctime,
+                7 => atime,
+                8 => count,
+            } = rawmap;
         }
 
+        let description = extract_string(description.unwrap())?;
+        let username = extract_string(username.unwrap())?;
+        let password = extract_string(password.unwrap())?;
+        let notes = extract_string(notes.unwrap())?;
+        let version = extract_unsigned(version.unwrap())? as u32;
+        let ctime = extract_unsigned(ctime.unwrap())?;
+        let atime = extract_unsigned(atime.unwrap())?;
+        let count = extract_unsigned(count.unwrap())?;
+
+        let pr = PasswordRecord {
+            version,
+            description,
+            username,
+            password,
+            notes,
+            ctime,
+            atime,
+            count
+        };
+        
         *self = pr;
         Ok(())
     }
     fn to_vec(&self) -> Vec<u8> {
-        format!(
-            "{}:{}\n{}:{}\n{}:{}\n{}:{}\n{}:{}\n{}:{}\n{}:{}\n{}:{}\n",
-            "version",
-            self.version,
-            "description",
-            self.description,
-            "username",
-            self.username,
-            "password",
-            self.password,
-            "notes",
-            self.notes,
-            "ctime",
-            self.ctime,
-            "atime",
-            self.atime,
-            "count",
-            self.count,
-        )
-        .into_bytes()
+        let cb = cbor_map! {
+            cbor_key_int!(1) => self.version as u64,
+            cbor_key_int!(2) => self.description.clone(),
+            cbor_key_int!(3) => self.username.clone(),
+            cbor_key_int!(4) => self.password.clone(),
+            cbor_key_int!(5) => self.notes.clone(),
+            cbor_key_int!(6) => self.ctime,
+            cbor_key_int!(7) => self.atime,
+            cbor_key_int!(8) => self.count,
+        };
+
+        let mut ret = vec![];
+        cbor::write(cb, &mut ret);
+        ret
     }
 
     fn hash(&self) -> Vec<u8> {
@@ -697,6 +685,43 @@ impl StorageContent for PasswordRecord {
         h.update(self.description.as_bytes());
         h.update(self.username.as_bytes());
         h.finalize().to_vec()
+    }
+}
+
+// TODO(gsora): if we end up using cbor, those functions must go away and moved to a separate, common pkg
+fn extract_bool(cbor_value: cbor::Value) -> Result<bool, Error> {
+    match cbor_value {
+        cbor::Value::Simple(cbor::SimpleValue::FalseValue) => Ok(false),
+        cbor::Value::Simple(cbor::SimpleValue::TrueValue) => Ok(true),
+        _ => Err(Error::BadCbor),
+    }
+}
+
+fn extract_unsigned(cbor_value: cbor::Value) -> Result<u64, Error> {
+    match cbor_value {
+        cbor::Value::KeyValue(cbor::KeyType::Unsigned(unsigned)) => Ok(unsigned),
+        _ => Err(Error::BadCbor),
+    }
+}
+
+fn extract_byte_string(cbor_value: cbor::Value) -> Result<Vec<u8>, Error> {
+    match cbor_value {
+        cbor::Value::KeyValue(cbor::KeyType::ByteString(byte_string)) => Ok(byte_string),
+        _ => Err(Error::BadCbor),
+    }
+}
+
+fn extract_array(cbor_value: cbor::Value) -> Result<Vec<cbor::Value>, Error> {
+    match cbor_value {
+        cbor::Value::Array(array) => Ok(array),
+        _ => Err(Error::BadCbor),
+    }
+}
+
+fn extract_string(cbor_value: cbor::Value) -> Result<String, Error> {
+    match cbor_value {
+        cbor::Value::KeyValue(cbor::KeyType::TextString(string)) => Ok(string),
+        _ => Err(Error::BadCbor),
     }
 }
 
@@ -775,26 +800,20 @@ impl TryFrom<Vec<u8>> for PasswordRecord {
 
 impl From<PasswordRecord> for Vec<u8> {
     fn from(pr: PasswordRecord) -> Self {
-        format!(
-            "{}:{}\n{}:{}\n{}:{}\n{}:{}\n{}:{}\n{}:{}\n{}:{}\n{}:{}\n",
-            "version",
-            pr.version,
-            "description",
-            pr.description,
-            "username",
-            pr.username,
-            "password",
-            pr.password,
-            "notes",
-            pr.notes,
-            "ctime",
-            pr.ctime,
-            "atime",
-            pr.atime,
-            "count",
-            pr.count,
-        )
-        .into_bytes()
+        let cb = cbor_map! {
+            cbor_key_int!(1) => pr.version as u64,
+            cbor_key_int!(2) => pr.description,
+            cbor_key_int!(3) => pr.username,
+            cbor_key_int!(4) => pr.password,
+            cbor_key_int!(5) => pr.notes,
+            cbor_key_int!(6) => pr.ctime,
+            cbor_key_int!(7) => pr.atime,
+            cbor_key_int!(8) => pr.count,
+        };
+
+        let mut ret = vec![];
+        cbor::write(cb, &mut ret);
+        ret
     }
 }
 
