@@ -200,6 +200,7 @@ impl CtapHid {
                         }
                     }
                     // CTAP specification (version 20190130) section 8.1.9.1.2
+                    #[cfg(not(feature = "dont-process-cbor"))]
                     CtapHid::COMMAND_CBOR => {
                         log::trace!("COMMAND_CBOR");
                         // CTAP specification (version 20190130) section 8.1.5.1
