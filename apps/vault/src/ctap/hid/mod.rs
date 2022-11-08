@@ -127,7 +127,7 @@ impl CtapHid {
     const CAPABILITY_NMSG: u8 = 0x08;
     // Capabilitites currently supported by this device.
     #[cfg(feature = "with_ctap1")]
-    const CAPABILITIES: u8 = CtapHid::CAPABILITY_WINK | CtapHid::CAPABILITY_CBOR;
+    const CAPABILITIES: u8 = CtapHid::CAPABILITY_WINK;
     #[cfg(not(feature = "with_ctap1"))]
     const CAPABILITIES: u8 =
         CtapHid::CAPABILITY_WINK | CtapHid::CAPABILITY_CBOR | CtapHid::CAPABILITY_NMSG;
