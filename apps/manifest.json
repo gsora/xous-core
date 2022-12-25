@@ -23,6 +23,14 @@
             }
         }
     },
+    "gb": {
+        "context_name": "GameBoy emulator",
+        "menu_name": {
+            "appmenu.gb": {
+                "en": "GameBoy emulator"
+            }
+        }
+    },
     "mtxcli": {
         "context_name": "Matrix chat",
         "menu_name": {

@@ -76,6 +76,7 @@ members = [
   "apps/mtxcli",
   "apps/repl",
   "apps/vault",
+  "apps/gb",
   "apps/vault/tools/vaultbackup-rs",
   "services/libstd-test",
   "services/ffi-test",
