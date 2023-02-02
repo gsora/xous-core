@@ -67,5 +67,13 @@
                 "en": "Transient USB disk"
             }
         }
+    },
+    "pddbdisk": {
+        "context_name": "PDDB USB disk",
+        "menu_name": {
+            "appmenu.pddbdisk": {
+                "en": "PDDB USB disk"
+            }
+        }
     }
 }
