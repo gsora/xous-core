@@ -19,14 +19,14 @@ use actions::ActionOp;
 use itemcache::*;
 use locales::t;
 use num_traits::*;
-use ux::framework::{name_to_style, VaultUx, DEFAULT_FONT, FONT_LIST};
+use usb_device_xous::HIDReport;
+use ux::framework::{DEFAULT_FONT, FONT_LIST, VaultUx, name_to_style};
 use vault::ctap::main_hid::HidIterType;
-use vault::env::xous::XousEnv;
 use vault::env::Env;
-use vault::{Transport, VaultOp, SELF_CONN};
-use xous::{msg_blocking_scalar_unpack, msg_scalar_unpack, send_message, Message};
+use vault::env::xous::XousEnv;
+use vault::{SELF_CONN, Transport, VaultOp};
+use xous::{Message, msg_blocking_scalar_unpack, msg_scalar_unpack, send_message};
 use xous_ipc::Buffer;
-use xous_usb_hid::device::fido::*;
 
 use crate::prereqs::ntp_updater;
 use crate::ux::framework::NavDir;
@@ -325,12 +325,12 @@ fn main() -> ! {
                             let mutex = opensk_mutex.lock().unwrap();
                             log::trace!("Received U2F packet");
                             let typed_reply =
-                                ctap.process_hid_packet(&msg.packet, Transport::MainHid, Instant::now());
+                                ctap.process_hid_packet(&msg.0, Transport::MainHid, Instant::now());
                             match typed_reply {
                                 HidIterType::Ctap(reply) => {
                                     for pkt_reply in reply {
-                                        let mut reply = RawFidoReport::default();
-                                        reply.packet.copy_from_slice(&pkt_reply);
+                                        let mut reply = HIDReport::default();
+                                        reply.0.copy_from_slice(&pkt_reply);
                                         let status = ctap.env().main_hid_connection().u2f_send(reply);
                                         match status {
                                             Ok(()) => {
@@ -388,8 +388,8 @@ fn main() -> ! {
                                         }
                                     };
                                     for pkt_reply in reply {
-                                        let mut reply = RawFidoReport::default();
-                                        reply.packet.copy_from_slice(&pkt_reply);
+                                        let mut reply = HIDReport::default();
+                                        reply.0.copy_from_slice(&pkt_reply);
                                         let status = ctap.env().main_hid_connection().u2f_send(reply);
                                         match status {
                                             Ok(()) => {
